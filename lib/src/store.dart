@@ -313,8 +313,9 @@ class AppStore extends ChangeNotifier {
   String? confirmSafety(String id, List<bool> ticked) {
     final j = job(id);
     if (!j.needsSafetyCheck || j.safetyCheckedAt != null || j.closed) return null;
-    if (ticked.length != safetyChecks.length || ticked.contains(false))
+    if (ticked.length != safetyChecks.length || ticked.contains(false)) {
       return 'Tick every safety check. If one fails, make the appliance safe and call the office.';
+    }
     j.safetyCheckedAt = now();
     _commit('${j.ref}: site safety check done', jobId: j.id);
     return null;
