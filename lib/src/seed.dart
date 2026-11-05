@@ -5,7 +5,7 @@ import 'format.dart';
 import 'models.dart';
 
 /// Bump when the stored shape changes so old browsers re-seed.
-const stateVersion = 2;
+const stateVersion = 3;
 const company = 'Northbeam Heating & Plumbing';
 
 /// Fee charged for every visit, labour rate per hour (billed in 15-minute steps,
@@ -286,10 +286,43 @@ Strokes syntheticSignature(Rng r) {
 }
 
 class Seed {
-  Seed(this.customers, this.parts, this.jobs);
+  Seed(this.customers, this.parts, this.jobs, this.equipment);
   final List<Customer> customers;
   final List<Part> parts;
   final List<Job> jobs;
+  final List<Equipment> equipment;
+}
+
+const _equipment = [
+  (Trade.heating, 'Gas furnace', ['Carrier 59SC5', 'Trane S9V2', 'Lennox ML180', 'Goodman GM9S96']),
+  (Trade.cooling, 'Central air conditioner', ['Carrier 24ACC6', 'Trane XR16', 'Lennox ML14XC1']),
+  (Trade.plumbing, 'Gas water heater, 50 gal', ['A. O. Smith GCR-50', 'Rheem PROG50', 'Bradford White RG250']),
+  (Trade.controls, 'Smart thermostat', ['ecobee Premium', 'Honeywell T9', 'Google Nest Learning']),
+];
+
+/// One to three appliances per customer, each with a serial and a service record.
+List<Equipment> seedEquipment(Rng r, List<Customer> customers, String today) {
+  final out = <Equipment>[];
+  for (final c in customers) {
+    final kinds = [..._equipment]..shuffle(math.Random(r.below(1 << 30)));
+    for (final (trade, kind, models) in kinds.take(1 + r.below(3))) {
+      final model = r.pick(models);
+      out.add(
+        Equipment(
+          id: '${c.id}-${trade.name}',
+          customerId: c.id,
+          trade: trade,
+          kind: kind,
+          make: model.split(' ').first,
+          model: model,
+          serial: '${String.fromCharCode(65 + r.below(26))}${String.fromCharCode(65 + r.below(26))}${1000000 + r.below(8999999)}',
+          installed: 2008 + r.below(17),
+          lastService: r.next() < 0.75 ? addDays(today, -30 - r.below(700)) : null,
+        ),
+      );
+    }
+  }
+  return out;
 }
 
 /// Today's route is fixed so the first screen always tells the same story:
@@ -346,7 +379,16 @@ Seed buildSeed(DateTime now) {
         ..completedAt = DateTime(d.year, d.month, d.day, 0, start + tpl.minutes + 5 + r.below(25))
         ..labourMinutes = tpl.minutes + (r.below(3) - 1) * 15
         ..signature = syntheticSignature(r)
-        ..signedBy = c.name;
+        ..signedBy = c.name
+        ..safetyCheckedAt = tpl.trade == Trade.heating ? DateTime(d.year, d.month, d.day, 0, start + 2) : null;
+      final total = callOutFee + 110.0 * (job.labourMinutes! / 60) + job.parts.fold<double>(0, (sum, u) => sum + u.price * u.qty) * (1 + taxRate);
+      final roll = r.next();
+      job.payment = Payment(
+        method: roll < 0.6 ? PayMethod.card : (roll < 0.85 ? PayMethod.invoice : PayMethod.cash),
+        amount: (total * 100).roundToDouble() / 100,
+        at: job.completedAt!,
+        receipt: 'R-${job.ref.substring(3)}',
+      );
       if (r.next() < 0.6) {
         job.photos.add(Photo(id: '${job.id}-p0', label: 'Before', at: job.arrivedAt!, seed: r.below(1000)));
         job.photos.add(Photo(id: '${job.id}-p1', label: 'After', at: job.completedAt!, seed: r.below(1000)));
@@ -377,5 +419,19 @@ Seed buildSeed(DateTime now) {
       t = (t / 15).ceil() * 15;
     }
   }
-  return Seed(customers, parts, jobs);
+  final equipment = seedEquipment(r, customers, today);
+  // Every customer on the books has the appliance their jobs are about.
+  for (final j in jobs) {
+    if (!equipment.any((e) => e.customerId == j.customerId && e.trade == j.trade)) {
+      final (trade, kind, models) = _equipment.firstWhere((e) => e.$1 == j.trade);
+      equipment.add(
+        Equipment(id: '${j.customerId}-${trade.name}', customerId: j.customerId, trade: trade, kind: kind, make: models.first.split(' ').first, model: models.first, serial: 'SN${1000000 + r.below(8999999)}', installed: 2010 + r.below(14)),
+      );
+    }
+  }
+  for (final j in jobs.where((x) => x.done)) {
+    final e = equipment.firstWhere((e) => e.customerId == j.customerId && e.trade == j.trade);
+    if (e.lastService == null || e.lastService!.compareTo(j.date) < 0) e.lastService = j.date;
+  }
+  return Seed(customers, parts, jobs, equipment);
 }

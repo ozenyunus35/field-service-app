@@ -47,6 +47,8 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SyncStrip(),
 
+          const _Today(),
+
           const SectionHeader('Last 7 days'),
           Panel(
             child: Column(
@@ -262,6 +264,99 @@ class _Bars extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+
+/// Today's hours (from the job times and breaks), money taken, and texts sent to customers.
+class _Today extends StatelessWidget {
+  const _Today();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = StoreScope.of(context);
+    final t = context.t;
+    final tt = Theme.of(context).textTheme;
+    final sheet = s.timesheet();
+    final money0 = s.takings();
+    final onBreak = s.onBreak;
+    final texts = s.messages.where((m) => dateKey(m.at) == s.today).toList().reversed.toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          'Today\'s hours',
+          trailing: TextButton.icon(
+            onPressed: () {
+              if (onBreak != null) {
+                s.endBreak();
+                toast(context, 'Break ended.');
+              } else {
+                final err = s.startBreak();
+                toast(context, err ?? 'Break started. Customers see you as unavailable.');
+              }
+            },
+            icon: Icon(onBreak != null ? LucideIcons.play : LucideIcons.coffee, size: 15),
+            label: Text(onBreak != null ? 'End break' : 'Start break'),
+            style: TextButton.styleFrom(minimumSize: const Size(0, 30), padding: const EdgeInsets.symmetric(horizontal: 8)),
+          ),
+        ),
+        Panel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: Metric(label: 'Worked', value: duration(sheet.worked), sub: sheet.clockIn == null ? 'Not started' : 'Since ${clockOf(sheet.clockIn!)}')),
+                  Expanded(child: Metric(label: 'Driving', value: duration(sheet.travel))),
+                  Expanded(child: Metric(label: 'On site', value: duration(sheet.onSite))),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                [
+                  'Breaks ${duration(sheet.breaks)}',
+                  if (onBreak != null) 'on a break since ${clockOf(onBreak.start)}',
+                  if (sheet.overtime > 0) 'overtime ${duration(sheet.overtime)}' else 'overtime starts after 8 h',
+                ].join(' · '),
+                style: tt.bodySmall?.copyWith(color: sheet.overtime > 0 ? t.warning : null),
+              ),
+            ],
+          ),
+        ),
+        const SectionHeader('Taken today'),
+        Panel(
+          child: Row(
+            children: [
+              Expanded(child: Metric(label: 'Card', value: money(money0.card, cents: false))),
+              Expanded(child: Metric(label: 'Cash', value: money(money0.cash, cents: false))),
+              Expanded(child: Metric(label: 'To invoice', value: money(money0.invoice, cents: false))),
+            ],
+          ),
+        ),
+        if (texts.isNotEmpty) ...[
+          const SectionHeader('Texts to customers'),
+          Panel(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final m in texts.take(5))
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('${s.customer(m.customerId).name} · ${clockOf(m.at)}', style: tt.titleSmall),
+                        Text(m.body, style: tt.bodySmall),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

@@ -17,13 +17,19 @@ in a phone frame)
 ## Try it
 
 1. On **Today**, the urgent "No heat" call is next. Tap **Start travel**, then **Arrived on site**.
-2. Open the job, tick the required checks, add a part from the van and a photo.
-3. Tap **Complete job**: adjust the labour time, check the invoice, sign with a finger or the mouse, and send it.
+2. Open the job: do the **site safety check** (it's a gas furnace), tick the required checks, add a part from the
+   van and a photo. Under **Quotes**, quote follow-up work from a template and let the customer sign to accept: it is
+   booked on the first day with room.
+3. Tap **Complete job**: the labour starts from your real time on site; take payment by card, cash (with change) or
+   invoice, sign with a finger or the mouse, and send it. The receipt follows.
 4. In **Profile**, turn on **Work offline** and tap **Simulate** under *Office changes*: the office cancels your
    current job, moves the next one and adds an urgent call. Keep working on the current job, then go online: the
    untouched changes arrive, and the cancelled job you were working on comes up as a **sync conflict** for you to
    settle.
-5. **Van stock** shows what is running low; request a restock.
+5. **Van stock** shows what is running low; request a restock and mark it received.
+6. Fall behind (or open the demo in the afternoon): **Today** shows each stop's arrival time and offers to text the
+   customers you'll reach after their window. **Profile** has today's hours (driving, on site, breaks, overtime),
+   the money taken and the texts sent.
 
 ## Features
 
@@ -44,6 +50,17 @@ in a phone frame)
   takes them (cancelled, moved, or a new urgent call); a job worked on offline becomes a conflict with "Keep my
   work" or the office's version, and a job completed offline always keeps its invoice.
 - **Restock:** request a restock and mark it received when it arrives.
+- **Quotes:** follow-up work quoted on site from a template or item by item, labour and tax included; the customer
+  signs on the device to accept and the job is booked on the first working day with room, or declines.
+- **Payment and receipt:** card, cash (with the change worked out) or invoice in 30 days; a receipt on completion and
+  the day's takings in Profile.
+- **Arrival times and running late:** every open stop shows its expected arrival from the current job's progress
+  and the drives; customers who will wait past their window can be texted a new time (once per new time).
+- **Equipment history:** each customer's appliances with model, serial, age and last service, updated when a job
+  on that appliance is completed.
+- **Timesheet:** clock-in from the first departure, driving and on-site time from the job times, breaks and
+  overtime past eight hours.
+- **Site safety check:** gas appliances need three safety checks confirmed before a job can be signed off.
 - **Schedule:** two weeks of days with job counts; **Profile:** last 7 days (jobs, hours, invoiced, first-time fix
   rate) with a chart, sync status, light / dark / system theme.
 - Accessible: semantic labels for every control, so screen readers (and the browser tests) can use the app.

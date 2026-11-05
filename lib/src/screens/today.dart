@@ -59,6 +59,7 @@ class TodayScreen extends StatelessWidget {
             child: Padding(padding: EdgeInsets.only(top: 8), child: SyncStrip()),
           ),
           const SliverToBoxAdapter(child: SyncInbox()),
+          const SliverToBoxAdapter(child: _RunningLate()),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             sliver: SliverToBoxAdapter(
@@ -311,3 +312,55 @@ class _IconAction extends StatelessWidget {
 
 /// Shown under the company name in a few places.
 String companyLine(AppStore s) => '$company · ${s.tech.van}';
+
+
+/// Customers who will be waiting past their arrival window, with one tap to text them the new time.
+class _RunningLate extends StatelessWidget {
+  const _RunningLate();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = StoreScope.of(context);
+    final t = context.t;
+    final tt = Theme.of(context).textTheme;
+    final late = s.lateUntold;
+    if (late.isEmpty) return const SizedBox(width: double.infinity);
+    final eta = s.etas();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: Panel(
+        color: t.surface2,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(LucideIcons.clockAlert, size: 15, color: t.danger),
+                const SizedBox(width: 8),
+                Expanded(child: Semantics(header: true, child: Text('Running late', style: tt.titleSmall))),
+              ],
+            ),
+            const SizedBox(height: 4),
+            for (final j in late)
+              Padding(
+                padding: const EdgeInsets.only(top: 3),
+                child: Text('${s.customer(j.customerId).name}: arriving around ${clock(AppStore.roundEta(eta[j.id]!))}, window ${window(j.start, j.windowEnd)}', style: tt.bodyMedium),
+              ),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.tonalIcon(
+                onPressed: () {
+                  final n = s.notifyLate();
+                  toast(context, '${plural(n, 'customer')} texted with the new arrival time.');
+                },
+                icon: const Icon(LucideIcons.messageSquareText, size: 16),
+                label: Text(late.length == 1 ? 'Text the customer' : 'Text ${late.length} customers'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -23,9 +23,13 @@ class TimelineJob extends StatelessWidget {
     final c = s.customer(job.customerId);
     final look = statusLook(context, job.status);
     final time = clock(job.start).split(' ');
+    // Expected arrival for today's open stops; red when it is past the arrival window.
+    final raw = job.date == s.today && !job.closed && job.status != JobStatus.onSite ? s.etas()[job.id] : null;
+    final late = raw != null && raw > job.windowEnd;
+    final eta = raw == null ? null : AppStore.roundEta(raw);
     return Semantics(
       button: true,
-      label: '${clock(job.start)}, ${job.title}, ${c.name}, ${look.label}${job.urgent && !job.closed ? ', urgent' : ''}',
+      label: '${clock(job.start)}, ${job.title}, ${c.name}, ${look.label}${job.urgent && !job.closed ? ', urgent' : ''}${eta != null ? ', arriving around ${clock(eta)}${late ? ', late' : ''}' : ''}',
       excludeSemantics: true,
       child: InkWell(
         onTap: () => openJob(context, job),
@@ -123,9 +127,16 @@ class TimelineJob extends StatelessWidget {
                                 children: [
                                   StatusPill(job.status),
                                   const SizedBox(width: 8),
-                                  Icon(LucideIcons.clock3, size: 12, color: t.faint),
+                                  Icon(eta != null ? LucideIcons.navigation : LucideIcons.clock3, size: 12, color: late ? t.danger : t.faint),
                                   const SizedBox(width: 4),
-                                  Text(duration(job.duration), style: TextStyle(fontSize: 11.5, color: t.faint)),
+                                  // Open stops show when you'll get there; the others how long they take.
+                                  Flexible(
+                                    child: Text(
+                                      eta != null ? 'ETA ${clock(eta)}' : duration(job.duration),
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(fontSize: 11.5, fontWeight: late ? FontWeight.w600 : FontWeight.w400, color: late ? t.danger : t.faint),
+                                    ),
+                                  ),
                                   if (job.done) ...[
                                     const Spacer(),
                                     Text(

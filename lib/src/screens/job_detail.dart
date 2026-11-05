@@ -9,6 +9,7 @@ import '../store.dart';
 import '../theme.dart';
 import '../ui.dart';
 import 'complete.dart';
+import 'quote.dart';
 import 'signature.dart';
 
 typedef JobAction = ({String label, IconData icon, VoidCallback? onPressed});
@@ -144,6 +145,34 @@ class JobDetailScreen extends StatelessWidget {
                   ),
                 ),
 
+                const SectionHeader('Equipment'),
+                Panel(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    children: [
+                      for (final (i, e) in s.equipmentFor(c.id, first: j.trade).indexed) ...[
+                        if (i > 0) Divider(height: 1, color: t.border),
+                        _EquipmentLine(e, today: s.today),
+                      ],
+                    ],
+                  ),
+                ),
+
+                if (j.needsSafetyCheck && !j.cancelled) ...[
+                  const SectionHeader('Site safety'),
+                  j.safetyCheckedAt != null
+                      ? Panel(
+                          child: Row(
+                            children: [
+                              Icon(LucideIcons.shieldCheck, size: 16, color: t.success),
+                              const SizedBox(width: 10),
+                              Expanded(child: Text('Safety check done at ${clockOf(j.safetyCheckedAt!)}', style: tt.bodyMedium)),
+                            ],
+                          ),
+                        )
+                      : _SafetyCheck(job: j),
+                ],
+
                 SectionHeader('Checklist', trailing: Text('${j.checked} of ${j.checklist.length}', style: tt.bodySmall)),
                 Panel(
                   padding: const EdgeInsets.symmetric(vertical: 4),
@@ -278,6 +307,36 @@ class JobDetailScreen extends StatelessWidget {
 
                 const SectionHeader('Notes'),
                 _Notes(job: j, enabled: editable),
+
+                if (!j.cancelled && (j.status == JobStatus.onSite || j.done || s.quotesFor(j.id).isNotEmpty)) ...[
+                  SectionHeader(
+                    'Quotes',
+                    trailing: j.status == JobStatus.onSite || j.done
+                        ? TextButton.icon(
+                            onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => QuoteScreen(jobId: j.id))),
+                            icon: const Icon(LucideIcons.filePlus2, size: 15),
+                            label: const Text('New quote'),
+                            style: TextButton.styleFrom(minimumSize: const Size(0, 30), padding: const EdgeInsets.symmetric(horizontal: 8)),
+                          )
+                        : null,
+                  ),
+                  Panel(
+                    padding: EdgeInsets.zero,
+                    child: s.quotesFor(j.id).isEmpty
+                        ? Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Text('Found more work? Quote it here and the customer can accept on the spot.', style: tt.bodySmall),
+                          )
+                        : Column(
+                            children: [
+                              for (final (i, q) in s.quotesFor(j.id).indexed) ...[
+                                if (i > 0) Divider(height: 1, color: t.border),
+                                _QuoteLine(job: j, quote: q),
+                              ],
+                            ],
+                          ),
+                  ),
+                ],
 
                 if (j.done) ...[const SectionHeader('Sign-off'), _SignOff(job: j)],
 
@@ -654,6 +713,122 @@ class _PartPickerState extends State<_PartPicker> {
           ),
         ],
       ),
+    );
+  }
+}
+
+
+class _EquipmentLine extends StatelessWidget {
+  const _EquipmentLine(this.e, {required this.today});
+  final Equipment e;
+  final String today;
+
+  @override
+  Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final age = int.parse(today.substring(0, 4)) - e.installed;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      child: Row(
+        children: [
+          TradeBadge(e.trade, size: 30),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${e.kind} · ${e.model}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                Text(
+                  'Serial ${e.serial} · installed ${e.installed} (${plural(age, 'year')}) · ${e.lastService == null ? 'no service on record' : 'last service ${dayShort(e.lastService!)}'}',
+                  style: tt.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Three checks before any work on a gas appliance; all of them have to pass.
+class _SafetyCheck extends StatefulWidget {
+  const _SafetyCheck({required this.job});
+  final Job job;
+
+  @override
+  State<_SafetyCheck> createState() => _SafetyCheckState();
+}
+
+class _SafetyCheckState extends State<_SafetyCheck> {
+  final ticked = [for (final _ in AppStore.safetyChecks) false];
+
+  @override
+  Widget build(BuildContext context) {
+    final s = StoreScope.of(context);
+    final t = context.t;
+    final onSite = widget.job.status == JobStatus.onSite;
+    return Panel(
+      padding: const EdgeInsets.fromLTRB(4, 4, 12, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 0, 4),
+            child: Text(onSite ? 'Before any work on the appliance:' : 'On arrival, before any work on the appliance:', style: TextStyle(fontSize: 13, color: t.muted)),
+          ),
+          for (final (i, label) in AppStore.safetyChecks.indexed)
+            CheckboxListTile(
+              value: ticked[i],
+              onChanged: onSite ? (v) => setState(() => ticked[i] = v ?? false) : null,
+              controlAffinity: ListTileControlAffinity.leading,
+              dense: true,
+              visualDensity: VisualDensity.compact,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+              title: Text(label, style: const TextStyle(fontSize: 14)),
+            ),
+          if (onSite)
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.tonalIcon(
+                onPressed: ticked.every((x) => x)
+                    ? () {
+                        final err = s.confirmSafety(widget.job.id, ticked);
+                        if (err != null) toast(context, err);
+                      }
+                    : null,
+                icon: const Icon(LucideIcons.shieldCheck, size: 16),
+                label: const Text('Confirm safety check'),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuoteLine extends StatelessWidget {
+  const _QuoteLine({required this.job, required this.quote});
+  final Job job;
+  final Quote quote;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = StoreScope.of(context);
+    final t = context.t;
+    final tt = Theme.of(context).textTheme;
+    final total = s.quoteTotal(quote).total;
+    final booked = quote.followUpJobId == null ? null : s.job(quote.followUpJobId!);
+    final (label, color) = switch (quote.status) {
+      QuoteStatus.open => ('Waiting for the customer', t.warning),
+      QuoteStatus.accepted => ('Accepted, ${booked!.ref} on ${dayShort(booked.date)}', t.success),
+      QuoteStatus.declined => ('Declined', t.faint),
+    };
+    return ListTile(
+      title: Text('${quote.title} · ${money(total, cents: false)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+      subtitle: Text('${quote.ref} · $label', style: tt.bodySmall?.copyWith(color: color)),
+      trailing: quote.status == QuoteStatus.open ? const Icon(LucideIcons.chevronRight, size: 16) : null,
+      onTap: quote.status == QuoteStatus.open ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => QuoteScreen(jobId: job.id, quoteId: quote.id))) : null,
     );
   }
 }

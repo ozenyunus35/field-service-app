@@ -89,6 +89,7 @@ void main() {
       expect(j.status, JobStatus.travelling);
       expect(j.startedAt, thursday);
       s.arrive(j.id);
+      s.confirmSafety(j.id, const [true, true, true]);
       expect(j.status, JobStatus.onSite);
       expect(s.current, j);
     });
@@ -97,6 +98,7 @@ void main() {
       final s = await fresh();
       final later = s.todayJobs.last;
       s.arrive(later.id);
+      s.confirmSafety(later.id, const [true, true, true]);
       expect(s.current, later);
     });
 
@@ -104,6 +106,7 @@ void main() {
       final s = await fresh();
       final j = s.current!;
       s.arrive(j.id);
+      s.confirmSafety(j.id, const [true, true, true]);
       expect(s.complete(j.id, labourMinutes: 60, signature: sig, signedBy: 'A'), contains('required check'));
       expect(j.done, isFalse);
     });
@@ -112,6 +115,7 @@ void main() {
       final s = await fresh();
       final j = s.current!;
       s.arrive(j.id);
+      s.confirmSafety(j.id, const [true, true, true]);
       for (final (i, c) in j.checklist.indexed) {
         if (c.required) s.toggleCheck(j.id, i);
       }
@@ -123,6 +127,7 @@ void main() {
       final s = await fresh();
       final j = s.current!;
       s.arrive(j.id);
+      s.confirmSafety(j.id, const [true, true, true]);
       for (final (i, c) in j.checklist.indexed) {
         if (c.required) s.toggleCheck(j.id, i);
       }
@@ -234,6 +239,7 @@ void main() {
       final s = await fresh();
       final j = s.current!;
       s.arrive(j.id);
+      s.confirmSafety(j.id, const [true, true, true]);
       s.addPart(j.id, 'igniter');
       s.setOffline(true);
       s.setNotes(j.id, 'Replaced igniter');
@@ -252,6 +258,7 @@ void main() {
     test('a new day starts a fresh route but keeps the theme', () async {
       final s = await fresh();
       s.arrive(s.current!.id);
+      s.confirmSafety(s.current!.id, const [true, true, true]);
       s.setTheme(ThemeMode.light);
       final tomorrow = AppStore(await SharedPreferences.getInstance(), clock: () => thursday.add(const Duration(days: 1)));
       expect(tomorrow.seededOn, '2026-10-30');
@@ -268,6 +275,7 @@ void main() {
     test('reset restores the demo route', () async {
       final s = await fresh();
       s.arrive(s.current!.id);
+      s.confirmSafety(s.current!.id, const [true, true, true]);
       s.addPart(s.current!.id, 'igniter');
       s.reset();
       expect(s.todayJobs.where((j) => j.active), isEmpty);
@@ -392,6 +400,7 @@ void main() {
       }
       expect(s.complete(j.id, labourMinutes: 60, signature: sig, signedBy: 'A'), 'Arrive on site first.');
       s.arrive(j.id);
+      s.confirmSafety(j.id, const [true, true, true]);
       expect(
         s.complete(
           j.id,
@@ -425,6 +434,7 @@ void main() {
       final j = s.current!;
       expect(s.suggestedLabour(j), AppStore.billable(j.duration));
       s.arrive(j.id);
+      s.confirmSafety(j.id, const [true, true, true]);
       t = t.add(const Duration(hours: 2, minutes: 50));
       expect(s.onSiteMinutes(j), 170);
       expect(s.suggestedLabour(j), 180);
@@ -466,6 +476,7 @@ void main() {
       s.setOffline(true);
       s.simulateOfficeChanges();
       s.arrive(cur.id);
+      s.confirmSafety(cur.id, const [true, true, true]);
       s.addPart(cur.id, 'igniter');
       final stock = s.part('igniter').qty;
       s.setOffline(false);
@@ -491,6 +502,7 @@ void main() {
       s.setOffline(true);
       s.simulateOfficeChanges();
       s.arrive(cur.id);
+      s.confirmSafety(cur.id, const [true, true, true]);
       for (final (i, c) in cur.checklist.indexed) {
         if (c.required) s.toggleCheck(cur.id, i);
       }
@@ -527,5 +539,159 @@ void main() {
         expect(ids.toSet().length, ids.length);
       }
     }
+  });
+
+  group('more features', () {
+    Future<(AppStore, void Function(Duration))> clocked() async {
+      var t = thursday;
+      SharedPreferences.setMockInitialValues({});
+      final s = AppStore(await SharedPreferences.getInstance(), clock: () => t, syncDelay: const Duration(milliseconds: 10));
+      return (s, (Duration d) => t = t.add(d));
+    }
+
+    void ready(AppStore s, Job j) {
+      s.arrive(j.id);
+      s.confirmSafety(j.id, const [true, true, true]);
+      for (final (i, c) in j.checklist.indexed) {
+        if (c.required && !c.done) s.toggleCheck(j.id, i);
+      }
+    }
+
+    test('gas jobs need the site safety check, every box ticked', () async {
+      final s = await fresh();
+      final j = s.current!;
+      expect(j.needsSafetyCheck, isTrue);
+      s.arrive(j.id);
+      expect(s.blockers(j, signature: sig), contains('Site safety check not done'));
+      expect(s.confirmSafety(j.id, const [true, false, true]), contains('Tick every safety check'));
+      expect(s.confirmSafety(j.id, const [true, true, true]), isNull);
+      expect(s.blockers(j, signature: sig), isNot(contains('Site safety check not done')));
+      final plumbing = s.todayJobs.firstWhere((x) => x.trade == Trade.plumbing && !x.done);
+      expect(plumbing.needsSafetyCheck, isFalse);
+      expect(s.jobs.where((x) => x.done && x.trade == Trade.heating).every((x) => x.safetyCheckedAt != null), isTrue);
+    });
+
+    test('payment by card, cash with change, or invoice later, and the day\'s takings', () async {
+      final s = await fresh();
+      final j = s.current!;
+      ready(s, j);
+      final total = s.invoice(j, labourMinutes: 60).total;
+      expect(s.complete(j.id, labourMinutes: 60, signature: sig, signedBy: 'Jordan', pay: PayMethod.cash, tendered: total - 1), contains('less than the total'));
+      expect(s.complete(j.id, labourMinutes: 60, signature: sig, signedBy: 'Jordan', pay: PayMethod.cash, tendered: 400), isNull);
+      expect(j.payment!.method, PayMethod.cash);
+      expect(j.payment!.change, closeTo(400 - total, 0.001));
+      expect(j.payment!.receipt, 'R-${j.ref.substring(3)}');
+      final takings = s.takings();
+      expect(takings.cash, closeTo(total, 0.001));
+      expect(takings.card + takings.invoice, greaterThan(0)); // the two jobs done this morning
+      expect(s.jobs.where((x) => x.done).every((x) => x.payment != null), isTrue);
+    });
+
+    test('completing a job updates the service record of the appliance', () async {
+      final s = await fresh();
+      final j = s.current!;
+      final furnace = s.equipmentFor(j.customerId, first: j.trade).first;
+      expect(furnace.trade, j.trade);
+      ready(s, j);
+      s.complete(j.id, labourMinutes: 60, signature: sig, signedBy: 'Jordan', pay: PayMethod.card);
+      expect(furnace.lastService, s.today);
+      for (final x in s.jobs) {
+        expect(s.equipment.any((e) => e.customerId == x.customerId && e.trade == x.trade), isTrue, reason: x.ref);
+      }
+    });
+
+    test('arrival times follow the route, and late customers are texted once per new time', () async {
+      final (s, tick) = await clocked();
+      final open = s.todayJobs.where((j) => !j.closed).toList();
+      final first = s.etas();
+      expect(first[open[0].id], greaterThanOrEqualTo(open[0].start));
+      for (var i = 1; i < open.length; i++) {
+        expect(first[open[i].id]!, greaterThanOrEqualTo(first[open[i - 1].id]! + open[i - 1].duration));
+      }
+      expect(s.lateJobs, isEmpty);
+
+      tick(const Duration(hours: 3, minutes: 30)); // 1:30 PM and the 10:30 job not started yet
+      expect(s.lateJobs, isNotEmpty);
+      final told = s.notifyLate();
+      expect(told, s.lateJobs.length);
+      expect(s.messages, hasLength(told));
+      expect(s.messages.first.body, contains('running late'));
+      expect(s.notifyLate(), 0);
+      tick(const Duration(minutes: 20));
+      expect(s.notifyLate(), greaterThan(0));
+    });
+
+    test('a quote needs the customer on site, items and a price, and books the work when accepted', () async {
+      final s = await fresh();
+      final j = s.current!;
+      final items = [QuoteItem('Water heater, 50 gal, gas', 1, 1450), QuoteItem('Expansion tank', 1, 95)];
+      expect(s.createQuote(j.id, title: 'Water heater replacement', minutes: 240, items: items).$2, contains('on site'));
+      s.arrive(j.id);
+      expect(s.createQuote(j.id, title: '', minutes: 240, items: items).$2, contains('title'));
+      expect(s.createQuote(j.id, title: 'X', minutes: 240, items: []).$2, contains('item'));
+      final (q, err) = s.createQuote(j.id, title: 'Water heater replacement', minutes: 240, items: items);
+      expect(err, isNull);
+      final total = s.quoteTotal(q!);
+      expect(total.items, 1545);
+      expect(total.labour, 440);
+      expect(total.tax, closeTo(158.36, 0.01));
+      expect(s.acceptQuote(q.id, signature: const [[Offset(0.5, 0.5)]], signedBy: 'Jordan'), contains('sign'));
+      expect(s.acceptQuote(q.id, signature: sig, signedBy: 'Jordan'), isNull);
+      final booked = s.job(q.followUpJobId!);
+      expect(booked.date.compareTo(s.today), greaterThan(0));
+      expect(weekday(booked.date), isNot(6));
+      expect(booked.duration, 240);
+      expect(booked.start + booked.duration, lessThanOrEqualTo(18 * 60));
+      final sameDay = s.jobsOn(booked.date).where((x) => x.id != booked.id);
+      for (final x in sameDay) {
+        expect(x.start + x.duration <= booked.start || booked.start + booked.duration <= x.start, isTrue);
+      }
+      expect(s.acceptQuote(q.id, signature: sig, signedBy: 'Jordan'), contains('already'));
+      final (q2, _) = s.createQuote(j.id, title: 'Flue liner', minutes: 120, items: [QuoteItem('Liner kit', 1, 300)]);
+      s.declineQuote(q2!.id);
+      expect(q2.status, QuoteStatus.declined);
+      expect(s.quotesFor(j.id), hasLength(2));
+    });
+
+    test('the timesheet adds up driving, time on site and breaks', () async {
+      final (s, tick) = await clocked();
+      final j = s.current!;
+      // This morning's two jobs are already on the sheet.
+      final before = s.timesheet();
+      expect(before.clockIn!.isBefore(thursday), isTrue);
+      s.startTravel(j.id);
+      tick(const Duration(minutes: 20));
+      ready(s, j);
+      expect(s.startBreak(), contains('Finish'));
+      tick(const Duration(minutes: 70));
+      s.complete(j.id, labourMinutes: 60, signature: sig, signedBy: 'Jordan', pay: PayMethod.card);
+      tick(const Duration(minutes: 10));
+      expect(s.startBreak(), isNull);
+      tick(const Duration(minutes: 30));
+      s.endBreak();
+      tick(const Duration(minutes: 20));
+      final t = s.timesheet();
+      expect(t.clockIn, before.clockIn);
+      expect(t.travel - before.travel, 20);
+      expect(t.onSite - before.onSite, 70);
+      expect(t.breaks, 30);
+      expect(t.worked, thursday.add(const Duration(minutes: 150)).difference(before.clockIn!).inMinutes - 30);
+      expect(t.overtime, 0);
+    });
+
+    test('new data survives a reload', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final a = AppStore(prefs, clock: () => thursday);
+      final j = a.current!;
+      a.arrive(j.id);
+      a.confirmSafety(j.id, const [true, true, true]);
+      a.createQuote(j.id, title: 'Igniter upgrade', minutes: 60, items: [QuoteItem('Igniter kit', 1, 120)]);
+      a.startTravel(j.id);
+      final b = AppStore(prefs, clock: () => thursday);
+      expect(b.job(j.id).safetyCheckedAt, isNotNull);
+      expect(b.quotes.single.title, 'Igniter upgrade');
+      expect(b.equipment, isNotEmpty);
+    });
   });
 }

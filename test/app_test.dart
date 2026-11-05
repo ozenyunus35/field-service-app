@@ -21,8 +21,14 @@ Future<AppStore> pumpApp(WidgetTester tester, {Size size = const Size(390, 844)}
   return store;
 }
 
+/// Scrolls the screen's list until [f] is built, for items further down a long screen.
+Future<void> reveal(WidgetTester tester, Finder f) async {
+  if (f.evaluate().isEmpty) await tester.dragUntilVisible(f, find.byType(ListView).last, const Offset(0, -200));
+}
+
 Future<void> tapText(WidgetTester tester, String text) async {
   final f = find.text(text);
+  await reveal(tester, f);
   await tester.ensureVisible(f.first);
   await tester.pumpAndSettle();
   await tester.tap(f.first);
@@ -70,6 +76,13 @@ void main() {
 
     await tapText(tester, 'Start travel');
     await tapText(tester, 'Arrived on site');
+
+    // Gas appliance: the site safety check comes first.
+    for (final label in AppStore.safetyChecks) {
+      await tapText(tester, label);
+    }
+    await tapText(tester, 'Confirm safety check');
+    expect(job.safetyCheckedAt, isNotNull);
     expect(find.text('Complete job'), findsOneWidget);
 
     // Required checks
@@ -109,7 +122,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Clear'), findsOneWidget);
 
-    final submit = find.textContaining('Complete and send');
+    final submit = find.textContaining('Complete ·');
     await tester.tap(submit);
     await tester.pumpAndSettle();
     expect(find.text('Job completed'), findsOneWidget);
@@ -128,7 +141,7 @@ void main() {
     await tapText(tester, 'Complete job');
     expect(find.text('Finish the required checks first'), findsOneWidget);
     final button = tester.widget<FilledButton>(
-      find.ancestor(of: find.textContaining('Complete and send'), matching: find.byWidgetPredicate((w) => w is FilledButton)),
+      find.ancestor(of: find.textContaining('Complete ·'), matching: find.byWidgetPredicate((w) => w is FilledButton)),
     );
     expect(button.onPressed, isNull);
   });
@@ -163,7 +176,10 @@ void main() {
     final s = await pumpApp(tester);
     await tester.tap(find.text('Profile').last);
     await tester.pumpAndSettle();
+    await reveal(tester, find.text('Everything is synced'));
     expect(find.text('Everything is synced'), findsOneWidget);
+    await tester.ensureVisible(find.text('Work offline'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Work offline'));
     await tester.pumpAndSettle();
     expect(s.offline, isTrue);
@@ -243,5 +259,81 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
     expect(s.job(job.id).notes, 'Igniter cracked, replaced');
+  });
+
+  testWidgets('a quote with a custom item is accepted on the spot and books the work', (tester) async {
+    final s = await pumpApp(tester);
+    final job = s.current!;
+    s.arrive(job.id);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(job.description));
+    await tester.pumpAndSettle();
+    await tapText(tester, 'New quote');
+    expect(find.text('New quote'), findsWidgets);
+    await tapText(tester, 'Igniter and flame sensor upgrade');
+    await tester.enterText(find.widgetWithText(TextField, 'Item'), 'Draft inducer motor');
+    await tester.enterText(find.widgetWithText(TextField, 'Price'), '310.50');
+    await tester.tap(find.byTooltip('Add item'));
+    await tester.pumpAndSettle();
+    expect(find.text('Draft inducer motor'), findsOneWidget);
+
+    final pad = find.bySemanticsLabel(RegExp('Signature pad'));
+    await reveal(tester, pad);
+    await tester.ensureVisible(pad);
+    await tester.pumpAndSettle();
+    final g = await tester.startGesture(tester.getCenter(pad) - const Offset(80, 0));
+    for (var i = 0; i < 8; i++) {
+      await g.moveBy(Offset(20, i.isEven ? 8 : -8));
+      await tester.pump();
+    }
+    await g.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Accept \$'));
+    await tester.pumpAndSettle();
+
+    final q = s.quotes.single;
+    expect(q.status, QuoteStatus.accepted);
+    expect(q.items.map((i) => i.label), contains('Draft inducer motor'));
+    expect(s.quoteTotal(q).items, 120 + 45 + 310.5);
+    final booked = s.job(q.followUpJobId!);
+    expect(booked.title, 'Igniter and flame sensor upgrade');
+    expect(find.textContaining('Accepted. ${booked.ref} is booked'), findsOneWidget);
+  });
+
+  testWidgets('cash chosen before signing: the change is shown and the job completes', (tester) async {
+    final s = await pumpApp(tester);
+    final job = s.current!;
+    s.arrive(job.id);
+    s.confirmSafety(job.id, const [true, true, true]);
+    for (final (i, c) in job.checklist.indexed) {
+      if (c.required) s.toggleCheck(job.id, i);
+    }
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(job.description));
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Complete job');
+    await tapText(tester, 'Cash');
+    final hundred = find.textContaining(RegExp(r'^\$\d+00$'));
+    await reveal(tester, hundred.last);
+    await tester.tap(hundred.last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Change to give'), findsOneWidget);
+
+    final pad = find.bySemanticsLabel(RegExp('Signature pad'));
+    await reveal(tester, pad);
+    await tester.ensureVisible(pad);
+    await tester.pumpAndSettle();
+    final g = await tester.startGesture(tester.getCenter(pad) - const Offset(80, 0));
+    for (var i = 0; i < 8; i++) {
+      await g.moveBy(Offset(20, i.isEven ? 8 : -8));
+      await tester.pump();
+    }
+    await g.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Complete · cash'));
+    await tester.pumpAndSettle();
+    expect(find.text('Job completed'), findsOneWidget);
+    expect(find.text('Paid in cash'), findsOneWidget);
+    expect(job.payment!.change, greaterThan(0));
   });
 }

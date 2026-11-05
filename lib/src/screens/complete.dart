@@ -26,6 +26,8 @@ class _CompleteScreenState extends State<CompleteScreen> {
   late int labour = s.suggestedLabour(j);
   late final name = TextEditingController(text: s.customer(j.customerId).name);
   Strokes signature = const [];
+  PayMethod pay = PayMethod.card;
+  double? tendered;
 
   @override
   void dispose() {
@@ -34,7 +36,7 @@ class _CompleteScreenState extends State<CompleteScreen> {
   }
 
   void _submit() {
-    final err = s.complete(j.id, labourMinutes: labour, signature: signature, signedBy: name.text);
+    final err = s.complete(j.id, labourMinutes: labour, signature: signature, signedBy: name.text, pay: pay, tendered: tendered);
     if (err != null) {
       toast(context, err);
       return;
@@ -154,6 +156,51 @@ class _CompleteScreenState extends State<CompleteScreen> {
             ),
           ),
 
+          const SectionHeader('Payment'),
+          Panel(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SegmentedButton<PayMethod>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: PayMethod.card, label: Text('Card'), icon: Icon(LucideIcons.creditCard, size: 15)),
+                    ButtonSegment(value: PayMethod.cash, label: Text('Cash'), icon: Icon(LucideIcons.banknote, size: 15)),
+                    ButtonSegment(value: PayMethod.invoice, label: Text('Invoice'), icon: Icon(LucideIcons.fileText, size: 15)),
+                  ],
+                  selected: {pay},
+                  onSelectionChanged: (v) => setState(() {
+                    pay = v.first;
+                    tendered = pay == PayMethod.cash ? inv.total : null;
+                  }),
+                ),
+                const SizedBox(height: 8),
+                if (pay == PayMethod.card) Text('Tap the card on the reader. In this demo the payment is simulated.', style: tt.bodySmall),
+                if (pay == PayMethod.invoice) Text('The invoice is emailed with payment due in 30 days.', style: tt.bodySmall),
+                if (pay == PayMethod.cash) ...[
+                  Text('Cash received', style: tt.bodySmall),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    children: [
+                      for (final amount in {inv.total, (inv.total / 10).ceil() * 10.0, (inv.total / 50).ceil() * 50.0, (inv.total / 100).ceil() * 100.0})
+                        ChoiceChip(
+                          label: Text(amount == inv.total ? 'Exact ${money(amount)}' : money(amount, cents: false)),
+                          selected: tendered == amount,
+                          onSelected: (_) => setState(() => tendered = amount),
+                        ),
+                    ],
+                  ),
+                  if (tendered != null && tendered! > inv.total) ...[
+                    const SizedBox(height: 6),
+                    Text('Change to give: ${money(tendered! - inv.total)}', style: tt.titleSmall),
+                  ],
+                ],
+              ],
+            ),
+          ),
+
           SectionHeader(
             'Customer sign-off',
             trailing: signature.isEmpty
@@ -201,7 +248,7 @@ class _CompleteScreenState extends State<CompleteScreen> {
                 child: FilledButton.icon(
                   onPressed: blockers.isEmpty && name.text.trim().isNotEmpty ? _submit : null,
                   icon: const Icon(LucideIcons.send, size: 16),
-                  label: Text('Complete and send ${money(inv.total)}'),
+                  label: Text('Complete · ${switch (pay) { PayMethod.card => 'card', PayMethod.cash => 'cash', PayMethod.invoice => 'invoice' }} ${money(inv.total)}'),
                 ),
               ),
             ],
@@ -251,6 +298,26 @@ class DoneScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: tt.bodyMedium?.copyWith(color: t.muted),
               ),
+              if (j.payment != null) ...[
+                const SizedBox(height: 16),
+                Panel(
+                  child: Column(
+                    children: [
+                      KeyValue('Receipt', j.payment!.receipt),
+                      KeyValue(
+                        switch (j.payment!.method) {
+                          PayMethod.card => 'Paid by card',
+                          PayMethod.cash => 'Paid in cash',
+                          PayMethod.invoice => 'To invoice, due in 30 days',
+                        },
+                        money(j.payment!.amount),
+                        strong: true,
+                      ),
+                      if (j.payment!.method == PayMethod.cash) KeyValue('Received · change', '${money(j.payment!.tendered!)} · ${money(j.payment!.change)}'),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 6),
               Text('Demo: nothing is actually sent.', style: tt.bodySmall),
               const Spacer(),

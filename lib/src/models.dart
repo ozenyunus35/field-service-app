@@ -110,6 +110,8 @@ class Job {
     this.signedBy,
     this.labourMinutes,
     this.cancelReason,
+    this.payment,
+    this.safetyCheckedAt,
   }) : parts = parts ?? [],
        photos = photos ?? [];
 
@@ -140,6 +142,15 @@ class Job {
 
   /// Set when the office cancelled the job.
   String? cancelReason;
+
+  /// How the customer paid at sign-off.
+  Payment? payment;
+
+  /// When the technician confirmed the site safety check (gas and heating jobs).
+  DateTime? safetyCheckedAt;
+
+  /// Gas appliances need a safety check before any work.
+  bool get needsSafetyCheck => trade == Trade.heating;
 
   int get windowEnd => start + 60;
   bool get done => status == JobStatus.completed;
@@ -175,6 +186,8 @@ class Job {
     'signedBy': signedBy,
     'labourMinutes': labourMinutes,
     'cancelReason': cancelReason,
+    'payment': payment?.toJson(),
+    'safetyCheckedAt': safetyCheckedAt?.toIso8601String(),
   };
 
   factory Job.fromJson(Map<String, dynamic> j) {
@@ -203,6 +216,8 @@ class Job {
       signedBy: j['signedBy'],
       labourMinutes: j['labourMinutes'],
       cancelReason: j['cancelReason'],
+      payment: j['payment'] == null ? null : Payment.fromJson(j['payment']),
+      safetyCheckedAt: d('safetyCheckedAt'),
     );
   }
 }
@@ -277,4 +292,161 @@ class Invoice {
 
   double get subtotal => callOut + labour + parts;
   double get total => subtotal + tax;
+}
+
+
+enum PayMethod { card, cash, invoice }
+
+/// What the customer paid at sign-off. Card and cash are taken on site; "invoice" is billed later.
+class Payment {
+  Payment({required this.method, required this.amount, required this.at, required this.receipt, this.tendered});
+  final PayMethod method;
+  final double amount;
+  final DateTime at;
+  final String receipt;
+
+  /// Cash handed over, so the receipt can show the change.
+  final double? tendered;
+
+  double get change => tendered == null ? 0 : ((tendered! - amount) * 100).roundToDouble() / 100;
+
+  Map<String, dynamic> toJson() => {'method': method.name, 'amount': amount, 'at': at.toIso8601String(), 'receipt': receipt, 'tendered': tendered};
+  factory Payment.fromJson(Map<String, dynamic> j) => Payment(
+    method: PayMethod.values.byName(j['method']),
+    amount: (j['amount'] as num).toDouble(),
+    at: DateTime.parse(j['at']),
+    receipt: j['receipt'],
+    tendered: (j['tendered'] as num?)?.toDouble(),
+  );
+}
+
+/// An appliance at a customer's address, with its service record.
+class Equipment {
+  Equipment({required this.id, required this.customerId, required this.trade, required this.kind, required this.make, required this.model, required this.serial, required this.installed, this.lastService});
+  final String id, customerId, kind, make, model, serial;
+  final Trade trade;
+  final int installed;
+
+  /// Date key of the last service, if any.
+  String? lastService;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'customerId': customerId,
+    'trade': trade.name,
+    'kind': kind,
+    'make': make,
+    'model': model,
+    'serial': serial,
+    'installed': installed,
+    'lastService': lastService,
+  };
+  factory Equipment.fromJson(Map<String, dynamic> j) => Equipment(
+    id: j['id'],
+    customerId: j['customerId'],
+    trade: Trade.values.byName(j['trade']),
+    kind: j['kind'],
+    make: j['make'],
+    model: j['model'],
+    serial: j['serial'],
+    installed: j['installed'],
+    lastService: j['lastService'],
+  );
+}
+
+class QuoteItem {
+  QuoteItem(this.label, this.qty, this.price);
+  final String label;
+  int qty;
+  final double price;
+
+  Map<String, dynamic> toJson() => {'label': label, 'qty': qty, 'price': price};
+  factory QuoteItem.fromJson(Map<String, dynamic> j) => QuoteItem(j['label'], j['qty'], (j['price'] as num).toDouble());
+}
+
+enum QuoteStatus { open, accepted, declined }
+
+/// Follow-up work quoted on site. Accepted with the customer's signature, it becomes a booked job.
+class Quote {
+  Quote({
+    required this.id,
+    required this.ref,
+    required this.jobId,
+    required this.customerId,
+    required this.title,
+    required this.trade,
+    required this.minutes,
+    required this.items,
+    required this.createdAt,
+    this.status = QuoteStatus.open,
+    this.signature,
+    this.signedBy,
+    this.decidedAt,
+    this.followUpJobId,
+  });
+  final String id, ref, jobId, customerId, title;
+  final Trade trade;
+
+  /// Labour the work will take, minutes.
+  final int minutes;
+  final List<QuoteItem> items;
+  final DateTime createdAt;
+  QuoteStatus status;
+  Strokes? signature;
+  String? signedBy;
+  DateTime? decidedAt;
+  String? followUpJobId;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'ref': ref,
+    'jobId': jobId,
+    'customerId': customerId,
+    'title': title,
+    'trade': trade.name,
+    'minutes': minutes,
+    'items': items.map((i) => i.toJson()).toList(),
+    'createdAt': createdAt.toIso8601String(),
+    'status': status.name,
+    'signature': signature?.map((s) => s.map((o) => [o.dx, o.dy]).toList()).toList(),
+    'signedBy': signedBy,
+    'decidedAt': decidedAt?.toIso8601String(),
+    'followUpJobId': followUpJobId,
+  };
+  factory Quote.fromJson(Map<String, dynamic> j) => Quote(
+    id: j['id'],
+    ref: j['ref'],
+    jobId: j['jobId'],
+    customerId: j['customerId'],
+    title: j['title'],
+    trade: Trade.values.byName(j['trade']),
+    minutes: j['minutes'],
+    items: [for (final i in j['items']) QuoteItem.fromJson(i)],
+    createdAt: DateTime.parse(j['createdAt']),
+    status: QuoteStatus.values.byName(j['status']),
+    signature: (j['signature'] as List?)?.map((s) => (s as List).map((p) => Offset((p[0] as num).toDouble(), (p[1] as num).toDouble())).toList()).toList(),
+    signedBy: j['signedBy'],
+    decidedAt: j['decidedAt'] == null ? null : DateTime.parse(j['decidedAt']),
+    followUpJobId: j['followUpJobId'],
+  );
+}
+
+/// A text sent to a customer, such as "running late, new arrival around 2:15 PM".
+class CustomerMessage {
+  CustomerMessage({required this.customerId, required this.jobId, required this.at, required this.body});
+  final String customerId, jobId, body;
+  final DateTime at;
+
+  Map<String, dynamic> toJson() => {'customerId': customerId, 'jobId': jobId, 'at': at.toIso8601String(), 'body': body};
+  factory CustomerMessage.fromJson(Map<String, dynamic> j) => CustomerMessage(customerId: j['customerId'], jobId: j['jobId'], at: DateTime.parse(j['at']), body: j['body']);
+}
+
+/// A break in the working day; [end] is null while it lasts.
+class BreakTime {
+  BreakTime(this.start, [this.end]);
+  final DateTime start;
+  DateTime? end;
+
+  Map<String, dynamic> toJson() => {'start': start.toIso8601String(), 'end': end?.toIso8601String()};
+  factory BreakTime.fromJson(Map<String, dynamic> j) => BreakTime(DateTime.parse(j['start']), j['end'] == null ? null : DateTime.parse(j['end']));
 }

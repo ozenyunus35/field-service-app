@@ -30,6 +30,17 @@ class AppStore extends ChangeNotifier {
   late List<Customer> customers;
   late List<Part> parts;
   late List<Job> jobs;
+  late List<Equipment> equipment;
+  List<Quote> quotes = [];
+
+  /// Texts sent to customers, newest last.
+  List<CustomerMessage> messages = [];
+
+  /// The arrival time last texted to each customer, by job, so a late notice isn't repeated.
+  Map<String, int> lateNotified = {};
+
+  /// Today's breaks.
+  List<BreakTime> breaks = [];
   bool offline = false;
   bool syncing = false;
   DateTime? lastSync;
@@ -62,6 +73,11 @@ class AppStore extends ChangeNotifier {
           customers = [for (final c in j['customers']) Customer.fromJson(c)];
           parts = [for (final p in j['parts']) Part.fromJson(p)];
           jobs = [for (final x in j['jobs']) Job.fromJson(x)];
+          equipment = [for (final e in j['equipment']) Equipment.fromJson(e)];
+          quotes = [for (final q in j['quotes'] ?? []) Quote.fromJson(q)];
+          messages = [for (final m in j['messages'] ?? []) CustomerMessage.fromJson(m)];
+          lateNotified = {for (final e in (j['lateNotified'] as Map? ?? {}).entries) e.key as String: e.value as int};
+          breaks = [for (final b in j['breaks'] ?? []) BreakTime.fromJson(b)];
           offline = j['offline'] ?? false;
           pending = [for (final p in j['pending'] ?? []) PendingChange.fromJson(p)];
           officeQueue = [for (final c in j['office'] ?? []) OfficeChange.fromJson(c)];
@@ -85,6 +101,11 @@ class AppStore extends ChangeNotifier {
     customers = s.customers;
     parts = s.parts;
     jobs = s.jobs;
+    equipment = s.equipment;
+    quotes = [];
+    messages = [];
+    lateNotified = {};
+    breaks = [];
     offline = false;
     pending = [];
     officeQueue = [];
@@ -104,6 +125,11 @@ class AppStore extends ChangeNotifier {
         'customers': customers.map((c) => c.toJson()).toList(),
         'parts': parts.map((p) => p.toJson()).toList(),
         'jobs': jobs.map((j) => j.toJson()).toList(),
+        'equipment': equipment.map((e) => e.toJson()).toList(),
+        'quotes': quotes.map((q) => q.toJson()).toList(),
+        'messages': messages.map((m) => m.toJson()).toList(),
+        'lateNotified': lateNotified,
+        'breaks': breaks.map((b) => b.toJson()).toList(),
         'offline': offline,
         'pending': pending.map((p) => p.toJson()).toList(),
         'office': officeQueue.map((c) => c.toJson()).toList(),
@@ -281,10 +307,23 @@ class AppStore extends ChangeNotifier {
     return points >= 4 && length >= 0.25;
   }
 
+  static const safetyChecks = ['No smell of gas at the appliance', 'Carbon monoxide alarm present and working', 'Flue and vents clear'];
+
+  /// Records the site safety check of a gas appliance, before any work on it.
+  String? confirmSafety(String id, List<bool> ticked) {
+    final j = job(id);
+    if (!j.needsSafetyCheck || j.safetyCheckedAt != null || j.closed) return null;
+    if (ticked.length != safetyChecks.length || ticked.contains(false)) return 'Tick every safety check. If one fails, make the appliance safe and call the office.';
+    j.safetyCheckedAt = now();
+    _commit('${j.ref}: site safety check done', jobId: j.id);
+    return null;
+  }
+
   /// What is still missing before a job can be signed off.
   List<String> blockers(Job j, {Strokes? signature}) {
     final sig = signature ?? j.signature;
     return [
+      if (j.needsSafetyCheck && j.safetyCheckedAt == null) 'Site safety check not done',
       if (j.requiredLeft > 0) '${plural(j.requiredLeft, 'required check')} not done',
       if (sig == null || sig.isEmpty) 'Customer signature missing' else if (!signatureOk(sig)) 'Signature is too short: ask the customer to sign in full',
     ];
@@ -296,7 +335,7 @@ class AppStore extends ChangeNotifier {
   /// The labour to start the sign-off with: the real time on site, in billable steps.
   int suggestedLabour(Job j) => billable(onSiteMinutes(j));
 
-  String? complete(String id, {required int labourMinutes, required Strokes signature, required String signedBy}) {
+  String? complete(String id, {required int labourMinutes, required Strokes signature, required String signedBy, PayMethod pay = PayMethod.invoice, double? tendered}) {
     final j = job(id);
     if (j.done) return 'This job is already completed.';
     if (j.cancelled) return 'The office cancelled this job.';
@@ -305,6 +344,9 @@ class AppStore extends ChangeNotifier {
     if (b.isNotEmpty) return b.first;
     if (signedBy.trim().isEmpty) return 'Enter the name of the person signing.';
     if (signedBy.trim().length > maxSignedBy) return 'Keep the name under $maxSignedBy characters.';
+    final total = invoice(j, labourMinutes: labourMinutes).total;
+    if (pay == PayMethod.cash && (tendered == null || tendered + 0.001 < total)) return 'The cash received is less than the total.';
+    if (pay == PayMethod.cash && tendered! > total + 1000) return 'Check the cash amount.';
     j
       ..arrivedAt ??= now()
       ..startedAt ??= j.arrivedAt
@@ -313,6 +355,10 @@ class AppStore extends ChangeNotifier {
       ..labourMinutes = billable(labourMinutes)
       ..signature = signature
       ..signedBy = signedBy.trim();
+    j.payment = Payment(method: pay, amount: invoice(j).total, at: now(), receipt: 'R-${j.ref.substring(3)}', tendered: pay == PayMethod.cash ? tendered : null);
+    for (final e in equipment.where((e) => e.customerId == j.customerId && e.trade == j.trade)) {
+      e.lastService = today;
+    }
     _commit('${j.ref}: completed, invoice ${money(invoice(j).total)}', jobId: j.id);
     return null;
   }
@@ -332,6 +378,201 @@ class AppStore extends ChangeNotifier {
       parts: round(partsTotal),
       tax: round(partsTotal * taxRate),
     );
+  }
+
+  // Money taken today
+
+  ({double card, double cash, double invoice}) takings() {
+    double sum(PayMethod m) => todayJobs.where((j) => j.done && j.payment?.method == m).fold<double>(0, (s, j) => s + j.payment!.amount);
+    return (card: sum(PayMethod.card), cash: sum(PayMethod.cash), invoice: sum(PayMethod.invoice));
+  }
+
+  // Arrival times and running late
+
+  int _minutes(DateTime d) => d.hour * 60 + d.minute;
+
+  /// Expected arrival for each of today's open jobs, in route order: the current job's
+  /// expected finish plus each drive, never before a job's window opens.
+  Map<String, int> etas() {
+    final out = <String, int>{};
+    var t = nowMinutes;
+    for (final j in todayJobs.where((j) => !j.closed)) {
+      if (j.status == JobStatus.onSite) {
+        out[j.id] = _minutes(j.arrivedAt!);
+        t = math.max(nowMinutes, _minutes(j.arrivedAt!) + j.duration);
+        continue;
+      }
+      final arrive = j.status == JobStatus.travelling ? math.max(nowMinutes, _minutes(j.startedAt!) + j.drive) : math.max(j.start, t + j.drive);
+      out[j.id] = arrive;
+      t = arrive + j.duration;
+    }
+    return out;
+  }
+
+  /// An arrival time as told to customers: rounded up to 5 minutes.
+  static int roundEta(int minutes) => (minutes / 5).ceil() * 5;
+
+  /// Today's jobs the technician will reach after their arrival window closes.
+  List<Job> get lateJobs {
+    final e = etas();
+    return todayJobs.where((j) => !j.closed && j.status != JobStatus.onSite && (e[j.id] ?? 0) > j.windowEnd).toList();
+  }
+
+  /// Late jobs whose customer hasn't been told this arrival time yet (or was told one 15+ minutes off).
+  List<Job> get lateUntold {
+    final e = etas();
+    return lateJobs.where((j) => (lateNotified[j.id] == null) || (e[j.id]! - lateNotified[j.id]!).abs() >= 15).toList();
+  }
+
+  /// Texts each customer who will be waiting past their window, with a new arrival time
+  /// rounded up to 5 minutes. Returns how many were told.
+  int notifyLate() {
+    final e = etas();
+    final told = lateUntold;
+    for (final j in told) {
+      final eta = roundEta(e[j.id]!);
+      final c = customer(j.customerId);
+      messages.add(
+        CustomerMessage(
+          customerId: c.id,
+          jobId: j.id,
+          at: now(),
+          body: 'Hi ${c.name.split(' ').first}, this is ${tech.name.split(' ').first} from Northbeam. I am running late: new arrival around ${clock(eta)} (your window was ${window(j.start, j.windowEnd)}). Sorry for the wait.',
+        ),
+      );
+      lateNotified[j.id] = e[j.id]!;
+    }
+    if (told.isNotEmpty) _commit('Told ${plural(told.length, 'customer')} about a late arrival');
+    return told.length;
+  }
+
+  // Quotes
+
+  /// Labour rate and tax as on invoices.
+  ({double items, double labour, double tax, double total}) quoteTotal(Quote q) {
+    final items = q.items.fold<double>(0, (s, i) => s + i.price * i.qty);
+    double round(double v) => (v * 100).roundToDouble() / 100;
+    final labour = round(tech.hourlyRate * q.minutes / 60);
+    final tax = round(items * taxRate);
+    return (items: round(items), labour: labour, tax: tax, total: round(items + labour + tax));
+  }
+
+  /// Quotes follow-up work from a job on site (or just finished). Returns the quote or an error.
+  (Quote?, String?) createQuote(String jobId, {required String title, required int minutes, required List<QuoteItem> items}) {
+    final j = job(jobId);
+    if (j.cancelled) return (null, 'This job was cancelled.');
+    if (j.status != JobStatus.onSite && !j.done) return (null, 'Quote on site, once you have seen the work.');
+    final name = title.trim();
+    if (name.isEmpty || name.length > 80) return (null, 'Give the work a short title.');
+    if (minutes < 30 || minutes > 600) return (null, 'Labour has to be between 30 minutes and 10 hours.');
+    if (items.isEmpty || items.any((i) => i.qty < 1 || i.price <= 0 || i.label.trim().isEmpty)) return (null, 'Add at least one item with a price.');
+    final n = quotes.length + 1;
+    final q = Quote(
+      id: 'q$n',
+      ref: 'Q-${j.ref.substring(3)}-$n',
+      jobId: j.id,
+      customerId: j.customerId,
+      title: name,
+      trade: j.trade,
+      minutes: AppStore.billable(minutes),
+      items: [for (final i in items) QuoteItem(i.label.trim(), i.qty, i.price)],
+      createdAt: now(),
+    );
+    quotes.add(q);
+    _commit('${q.ref}: quote for ${money(quoteTotal(q).total)}', jobId: j.id);
+    return (q, null);
+  }
+
+  /// The first working day from tomorrow with room for [minutes] after the booked jobs, and the start time.
+  (String, int) nextSlot(int minutes) {
+    for (var d = 1; d < 30; d++) {
+      final date = addDays(today, d);
+      if (weekday(date) == 6) continue;
+      final day = jobsOn(date).where((j) => !j.cancelled).toList();
+      final start = day.isEmpty ? 8 * 60 : ((day.map((j) => j.start + j.duration).reduce(math.max) + 30) / 15).ceil() * 15;
+      if (start + minutes <= 18 * 60) return (date, start);
+    }
+    return (addDays(today, 30), 8 * 60);
+  }
+
+  /// The customer signs to accept: the work is booked as a new job on the first day with room.
+  String? acceptQuote(String id, {required Strokes signature, required String signedBy}) {
+    final q = quotes.firstWhere((x) => x.id == id);
+    if (q.status != QuoteStatus.open) return 'This quote is already ${q.status.name}.';
+    if (!signatureOk(signature)) return 'Ask the customer to sign to accept.';
+    if (signedBy.trim().isEmpty || signedBy.trim().length > maxSignedBy) return 'Enter the name of the person signing.';
+    final (date, start) = nextSlot(q.minutes);
+    final n = jobs.length + 1;
+    final job = Job(
+      id: 'fu-$n',
+      ref: 'NB-${3000 + n}',
+      customerId: q.customerId,
+      title: q.title,
+      trade: q.trade,
+      date: date,
+      start: start,
+      duration: q.minutes,
+      drive: 20,
+      description: 'Quoted work (${q.ref}, ${money(quoteTotal(q).total)}): ${q.items.map((i) => '${i.qty} × ${i.label}').join(', ')}.',
+      checklist: [CheckItem('Confirm the quoted scope with the customer', required: true), CheckItem('Complete the quoted work', required: true), CheckItem('Test, clean up and walk the customer through it', required: true)],
+    );
+    jobs.add(job);
+    q
+      ..status = QuoteStatus.accepted
+      ..signature = signature
+      ..signedBy = signedBy.trim()
+      ..decidedAt = now()
+      ..followUpJobId = job.id;
+    _commit('${q.ref}: accepted, booked ${job.ref} for ${dayShort(date)}', jobId: q.jobId);
+    return null;
+  }
+
+  void declineQuote(String id) {
+    final q = quotes.firstWhere((x) => x.id == id);
+    if (q.status != QuoteStatus.open) return;
+    q
+      ..status = QuoteStatus.declined
+      ..decidedAt = now();
+    _commit('${q.ref}: declined', jobId: q.jobId);
+  }
+
+  List<Quote> quotesFor(String jobId) => quotes.where((q) => q.jobId == jobId).toList();
+
+  // Equipment
+
+  /// A customer's appliances, the job's own trade first.
+  List<Equipment> equipmentFor(String customerId, {Trade? first}) =>
+      equipment.where((e) => e.customerId == customerId).toList()..sort((a, b) => (a.trade == first ? 0 : 1).compareTo(b.trade == first ? 0 : 1));
+
+  // Timesheet
+
+  BreakTime? get onBreak => breaks.where((b) => b.end == null).firstOrNull;
+
+  String? startBreak() {
+    if (onBreak != null) return 'You are already on a break.';
+    if (activeJob?.status == JobStatus.onSite) return 'Finish or leave the job on site first.';
+    breaks.add(BreakTime(now()));
+    _commit('Break started');
+    return null;
+  }
+
+  void endBreak() {
+    final b = onBreak;
+    if (b == null) return;
+    b.end = now();
+    _commit('Break ended');
+  }
+
+  /// Today's hours from the job times: first departure, driving, on site, breaks, and overtime past 8 hours.
+  ({DateTime? clockIn, int travel, int onSite, int breaks, int worked, int overtime}) timesheet() {
+    final day = todayJobs.where((j) => j.startedAt != null && dateKey(j.startedAt!) == today).toList();
+    final starts = day.map((j) => j.startedAt!).toList()..sort();
+    final clockIn = starts.isEmpty ? null : starts.first;
+    final travel = day.fold<int>(0, (s, j) => s + ((j.arrivedAt ?? (j.status == JobStatus.travelling ? now() : j.startedAt!)).difference(j.startedAt!).inMinutes));
+    final onSite = day.where((j) => j.arrivedAt != null).fold<int>(0, (s, j) => s + ((j.completedAt ?? (j.status == JobStatus.onSite ? now() : j.arrivedAt!)).difference(j.arrivedAt!).inMinutes));
+    final brk = breaks.where((b) => dateKey(b.start) == today).fold<int>(0, (s, b) => s + (b.end ?? now()).difference(b.start).inMinutes);
+    final worked = clockIn == null ? 0 : math.max(0, now().difference(clockIn).inMinutes - brk);
+    return (clockIn: clockIn, travel: travel, onSite: onSite, breaks: brk, worked: worked, overtime: math.max(0, worked - 8 * 60));
   }
 
   // Van stock
