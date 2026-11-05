@@ -89,16 +89,46 @@ class ProfileScreen extends StatelessWidget {
                   secondary: Icon(s.offline ? LucideIcons.wifiOff : LucideIcons.wifi, size: 18, color: t.muted),
                 ),
                 Divider(height: 1, color: t.border),
-                ListTile(
-                  leading: s.syncing
-                      ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 1.8, color: t.accent))
-                      : Icon(s.pending.isEmpty ? LucideIcons.cloudCheck : LucideIcons.cloudUpload, size: 18, color: s.pending.isEmpty ? t.success : t.warning),
-                  title: Text(
-                    s.syncing ? 'Syncing…' : (s.pending.isEmpty ? 'Everything is synced' : '${plural(s.pending.length, 'change')} waiting'),
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                Semantics(
+                  container: true,
+                  child: ListTile(
+                    leading: Icon(LucideIcons.building2, size: 18, color: t.muted),
+                    title: const Text('Office changes', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    subtitle: Text(
+                      s.officeQueue.isNotEmpty ? '${plural(s.officeQueue.length, 'change')} from the office waiting for the next sync.' : 'While offline, let the office cancel your current job, move the next one and add an urgent call. Go online to sync and see how clashes are handled.',
+                      style: tt.bodySmall,
+                    ),
+                    trailing: s.offline && s.officeQueue.isEmpty
+                        ? TextButton(
+                            onPressed: () {
+                              final err = s.simulateOfficeChanges();
+                              toast(context, err ?? 'The office changed your day. Go online to sync.');
+                            },
+                            child: const Text('Simulate'),
+                          )
+                        : null,
                   ),
-                  subtitle: Text(s.lastSync == null ? 'Not synced yet' : 'Last synced ${ago(s.lastSync!, s.now())}', style: tt.bodySmall),
-                  trailing: !s.offline && s.pending.isNotEmpty && !s.syncing ? TextButton(onPressed: s.sync, child: const Text('Sync now')) : null,
+                ),
+                Divider(height: 1, color: t.border),
+                Semantics(
+                  container: true,
+                  child: ListTile(
+                    leading: s.syncing
+                        ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 1.8, color: t.accent))
+                        : Icon(
+                            s.pending.isEmpty ? LucideIcons.cloudCheck : LucideIcons.cloudUpload,
+                            size: 18,
+                            color: s.pending.isEmpty ? t.success : t.warning,
+                          ),
+                    title: Text(
+                      s.syncing ? 'Syncing…' : (s.pending.isEmpty ? 'Everything is synced' : '${plural(s.pending.length, 'change')} waiting'),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                    ),
+                    subtitle: Text(s.lastSync == null ? 'Not synced yet' : 'Last synced ${ago(s.lastSync!, s.now())}', style: tt.bodySmall),
+                    trailing: !s.offline && (s.pending.isNotEmpty || s.officeQueue.isNotEmpty) && !s.syncing
+                        ? TextButton(onPressed: s.sync, child: const Text('Sync now'))
+                        : null,
+                  ),
                 ),
                 if (s.pending.isNotEmpty) ...[
                   Divider(height: 1, color: t.border),

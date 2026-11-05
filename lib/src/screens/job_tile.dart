@@ -25,7 +25,7 @@ class TimelineJob extends StatelessWidget {
     final time = clock(job.start).split(' ');
     return Semantics(
       button: true,
-      label: '${clock(job.start)}, ${job.title}, ${c.name}, ${look.label}${job.urgent && !job.done ? ', urgent' : ''}',
+      label: '${clock(job.start)}, ${job.title}, ${c.name}, ${look.label}${job.urgent && !job.closed ? ', urgent' : ''}',
       excludeSemantics: true,
       child: InkWell(
         onTap: () => openJob(context, job),

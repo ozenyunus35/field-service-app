@@ -99,7 +99,13 @@ void main() {
     final pad = find.bySemanticsLabel(RegExp('Signature pad'));
     await tester.ensureVisible(pad);
     await tester.pumpAndSettle();
-    await tester.drag(pad, const Offset(160, 30));
+    // A signature, not a tap: one stroke with several points across the pad.
+    final g = await tester.startGesture(tester.getCenter(pad) - const Offset(80, 0));
+    for (var i = 0; i < 8; i++) {
+      await g.moveBy(Offset(20, i.isEven ? 8 : -8));
+      await tester.pump();
+    }
+    await g.up();
     await tester.pumpAndSettle();
     expect(find.text('Clear'), findsOneWidget);
 
@@ -139,7 +145,7 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Request restock of Hot surface igniter'));
     await tester.pumpAndSettle();
     expect(s.part('igniter').restockRequested, isTrue);
-    expect(find.text('Requested'), findsOneWidget);
+    expect(find.text('Received?'), findsOneWidget);
   });
 
   testWidgets('schedule shows other days', (tester) async {
@@ -219,5 +225,23 @@ void main() {
     expect(find.text('Sign-off', skipOffstage: false), findsOneWidget);
     expect(find.text('Add part'), findsNothing);
     expect(find.text('Complete job'), findsNothing);
+  });
+
+  testWidgets('notes typed and left with the back button are kept', (tester) async {
+    final s = await pumpApp(tester);
+    final job = s.current!;
+    await tester.tap(find.text(job.description));
+    await tester.pumpAndSettle();
+    final list = find.descendant(of: find.byType(JobDetailScreen), matching: find.byType(Scrollable)).first;
+    final field = find.widgetWithText(TextField, 'Notes for the office');
+    await tester.scrollUntilVisible(field, 200, scrollable: list);
+    await tester.pumpAndSettle();
+    await tester.tap(field);
+    await tester.pump();
+    await tester.enterText(field, 'Igniter cracked, replaced');
+    await tester.pump();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(s.job(job.id).notes, 'Igniter cracked, replaced');
   });
 }

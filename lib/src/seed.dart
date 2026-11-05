@@ -5,7 +5,7 @@ import 'format.dart';
 import 'models.dart';
 
 /// Bump when the stored shape changes so old browsers re-seed.
-const stateVersion = 1;
+const stateVersion = 2;
 const company = 'Northbeam Heating & Plumbing';
 
 /// Fee charged for every visit, labour rate per hour (billed in 15-minute steps,
@@ -305,7 +305,15 @@ Seed buildSeed(DateTime now) {
   var refNo = 2400;
 
   Job make(String date, int start, _Tpl tpl, {bool? urgent, required bool past}) {
-    final c = r.pick(customers);
+    // One visit per customer a day.
+    final booked = {
+      for (final x in jobs)
+        if (x.date == date) x.customerId,
+    };
+    var c = r.pick(customers);
+    for (var i = 0; i < 20 && booked.contains(c.id); i++) {
+      c = r.pick(customers);
+    }
     final job = Job(
       id: 'j${jobs.length}',
       ref: 'NB-${refNo++}',
@@ -317,7 +325,8 @@ Seed buildSeed(DateTime now) {
       duration: tpl.minutes,
       drive: 8 + r.below(22),
       description: r.pick(tpl.descriptions),
-      urgent: urgent ?? r.next() < tpl.urgentShare,
+      // Urgent calls are booked for the same or the next day, never a week out.
+      urgent: urgent ?? (date.compareTo(addDays(today, 1)) <= 0 && r.next() < tpl.urgentShare),
       checklist: [for (final (label, req) in tpl.checklist) CheckItem(label, required: req)],
     );
     if (past) {

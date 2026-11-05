@@ -22,7 +22,8 @@ class _CompleteScreenState extends State<CompleteScreen> {
   final pad = GlobalKey<SignaturePadState>();
   late final AppStore s = StoreScope.read(context);
   late final Job j = s.job(widget.jobId);
-  late int labour = AppStore.billable(j.duration);
+  // Start from the real time on site; the technician can still adjust it.
+  late int labour = s.suggestedLabour(j);
   late final name = TextEditingController(text: s.customer(j.customerId).name);
   Strokes signature = const [];
 
@@ -103,7 +104,12 @@ class _CompleteScreenState extends State<CompleteScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(duration(labour), style: tt.titleMedium),
-                      Text('Booked ${duration(j.duration)} · ${money(s.tech.hourlyRate, cents: false)}/h', style: tt.bodySmall),
+                      Text(
+                        j.arrivedAt == null
+                            ? 'Booked ${duration(j.duration)} · ${money(s.tech.hourlyRate, cents: false)}/h'
+                            : 'On site ${duration(s.onSiteMinutes(j))} · booked ${duration(j.duration)} · ${money(s.tech.hourlyRate, cents: false)}/h',
+                        style: tt.bodySmall,
+                      ),
                     ],
                   ),
                 ),
@@ -163,7 +169,8 @@ class _CompleteScreenState extends State<CompleteScreen> {
           const SizedBox(height: 10),
           TextField(
             controller: name,
-            decoration: const InputDecoration(labelText: 'Signed by'),
+            maxLength: AppStore.maxSignedBy,
+            decoration: const InputDecoration(labelText: 'Signed by', counterText: ''),
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 8),

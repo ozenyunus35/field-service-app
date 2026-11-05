@@ -19,20 +19,31 @@ in a phone frame)
 1. On **Today**, the urgent "No heat" call is next. Tap **Start travel**, then **Arrived on site**.
 2. Open the job, tick the required checks, add a part from the van and a photo.
 3. Tap **Complete job**: adjust the labour time, check the invoice, sign with a finger or the mouse, and send it.
-4. In **Profile**, turn on **Work offline**, make a few changes, then go online and watch them sync.
+4. In **Profile**, turn on **Work offline** and tap **Simulate** under *Office changes*: the office cancels your
+   current job, moves the next one and adds an urgent call. Keep working on the current job, then go online: the
+   untouched changes arrive, and the cancelled job you were working on comes up as a **sync conflict** for you to
+   settle.
 5. **Van stock** shows what is running low; request a restock.
 
 ## Features
 
 - **Today:** progress for the day, the next or current job with address, arrival window, drive time and one
   primary action, and the route as a timeline.
-- **Job flow:** scheduled → on the way → on site → completed. Required checklist items and the signature are
-  enforced before sign-off; completed jobs become read only and show the invoice and signature.
+- **Job flow:** scheduled → on the way → on site → completed. One job at a time, and only on its own day (a job for
+  tomorrow says so instead of offering "Start travel"). Required checklist items and a real signature (not a tap)
+  are enforced before sign-off, on site only; completed and cancelled jobs become read only.
 - **Parts:** taken from the van's stock and returned with − / +, price kept at the time of use, out-of-stock
   handling, low-stock badges and restock requests.
-- **Invoice:** call-out fee, labour in 15-minute steps (minimum 30), parts and sales tax on parts.
+- **Invoice:** call-out fee, labour in 15-minute steps (minimum 30) starting from the real time on site, parts and
+  sales tax on parts.
 - **Offline mode:** every change is saved on the device first; while offline it joins a queue that syncs when the
-  connection returns, with the status shown on every screen.
+  connection returns, with the status shown on every screen. The queue keeps one entry per note and drops a box
+  ticked and unticked. If the signal drops in the middle of a sync, nothing counts as sent and the whole queue
+  stays for the next try.
+- **Office changes and conflicts:** the office's changes arrive at the next sync. A job nobody touched simply
+  takes them (cancelled, moved, or a new urgent call); a job worked on offline becomes a conflict with "Keep my
+  work" or the office's version, and a job completed offline always keeps its invoice.
+- **Restock:** request a restock and mark it received when it arrives.
 - **Schedule:** two weeks of days with job counts; **Profile:** last 7 days (jobs, hours, invoiced, first-time fix
   rate) with a chart, sync status, light / dark / system theme.
 - Accessible: semantic labels for every control, so screen readers (and the browser tests) can use the app.
@@ -58,7 +69,7 @@ in a phone frame)
 
 | Demo | Production |
 | --- | --- |
-| Data on the device, a simulated sync | A REST or GraphQL API (or Firebase / Supabase), a local database (Drift / SQLite) and a background sync with conflict handling |
+| Data on the device, a simulated sync with simulated office changes | A REST or GraphQL API (or Firebase / Supabase), a local database (Drift / SQLite) and a background sync with conflict handling |
 | Photos drawn as placeholders | Camera and gallery with `image_picker`, compressed uploads to S3 or Cloud Storage |
 | Directions and calls show a note | `url_launcher` for maps and phone, live location with `geolocator` |
 | Invoice shown in the app | PDF invoice emailed to the customer, payment with Stripe |

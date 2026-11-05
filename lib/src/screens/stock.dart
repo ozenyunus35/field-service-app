@@ -180,11 +180,20 @@ class _PartRow extends StatelessWidget {
               ),
               if (p.low)
                 p.restockRequested
-                    ? Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          'Requested',
-                          style: TextStyle(fontSize: 11.5, color: t.success, fontWeight: FontWeight.w500),
+                    ? TextButton(
+                        onPressed: () {
+                          s.receiveRestock(p.id);
+                          toast(context, '${p.name} restocked: ${s.part(p.id).qty} in the van.');
+                        },
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(0, 26),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Semantics(
+                          label: 'Requested. Mark the restock of ${p.name} as received',
+                          excludeSemantics: true,
+                          child: Text('Received?', style: TextStyle(fontSize: 12.5, color: t.success)),
                         ),
                       )
                     : TextButton(

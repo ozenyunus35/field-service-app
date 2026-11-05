@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -14,22 +16,32 @@ typedef JobAction = ({String label, IconData icon, VoidCallback? onPressed});
 /// The one button that moves a job forward.
 JobAction primaryAction(BuildContext context, Job j) {
   final s = StoreScope.read(context);
+  final blocked = j.status == JobStatus.scheduled ? s.cannotStart(j) : null;
   return switch (j.status) {
+    JobStatus.scheduled when blocked != null => (label: blocked, icon: LucideIcons.calendarClock, onPressed: null),
     JobStatus.scheduled => (
       label: 'Start travel',
       icon: LucideIcons.car,
       onPressed: () {
-        s.startTravel(j.id);
-        toast(context, '${s.customer(j.customerId).name} was told you are on the way.');
+        final err = s.startTravel(j.id);
+        toast(context, err ?? '${s.customer(j.customerId).name} was told you are on the way.');
       },
     ),
-    JobStatus.travelling => (label: 'Arrived on site', icon: LucideIcons.mapPinned, onPressed: () => s.arrive(j.id)),
+    JobStatus.travelling => (
+      label: 'Arrived on site',
+      icon: LucideIcons.mapPinned,
+      onPressed: () {
+        final err = s.arrive(j.id);
+        if (err != null) toast(context, err);
+      },
+    ),
     JobStatus.onSite => (
       label: 'Complete job',
       icon: LucideIcons.circleCheck,
       onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CompleteScreen(jobId: j.id))),
     ),
     JobStatus.completed => (label: 'Completed', icon: LucideIcons.check, onPressed: null),
+    JobStatus.cancelled => (label: 'Cancelled by the office', icon: LucideIcons.ban, onPressed: null),
   };
 }
 
@@ -46,7 +58,7 @@ class JobDetailScreen extends StatelessWidget {
     final c = s.customer(j.customerId);
     final action = primaryAction(context, j);
     final history = s.history(c.id, except: j.id);
-    final editable = !j.done;
+    final editable = !j.closed;
 
     return Scaffold(
       appBar: AppBar(
@@ -75,11 +87,23 @@ class JobDetailScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (j.urgent && !j.done) Tag('Urgent', color: t.danger),
+                    if (j.urgent && !j.closed) Tag('Urgent', color: t.danger),
                   ],
                 ),
                 const SizedBox(height: 16),
-                _Steps(status: j.status),
+                if (j.cancelled)
+                  Panel(
+                    color: t.surface2,
+                    child: Row(
+                      children: [
+                        Icon(LucideIcons.ban, size: 16, color: t.danger),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text('Cancelled by the office: ${j.cancelReason ?? 'no reason given'}.', style: tt.bodyMedium)),
+                      ],
+                    ),
+                  )
+                else
+                  _Steps(status: j.status),
                 const SizedBox(height: 14),
                 Text(j.description, style: tt.bodyMedium),
 
@@ -285,7 +309,7 @@ class JobDetailScreen extends StatelessWidget {
           ),
         ],
       ),
-      bottomNavigationBar: j.done
+      bottomNavigationBar: j.closed
           ? null
           : SafeArea(
               child: Container(
@@ -458,6 +482,8 @@ class _Notes extends StatefulWidget {
 class _NotesState extends State<_Notes> {
   late final controller = TextEditingController(text: widget.job.notes);
   final focus = FocusNode();
+  late AppStore store;
+  Timer? debounce;
 
   @override
   void initState() {
@@ -467,10 +493,27 @@ class _NotesState extends State<_Notes> {
     });
   }
 
-  void _save() => StoreScope.read(context).setNotes(widget.job.id, controller.text.trim());
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    store = StoreScope.read(context);
+  }
+
+  // Saved as you type (after a pause), when the field loses focus and when the screen closes,
+  // so leaving with the back button never drops a note.
+  void _save() {
+    debounce?.cancel();
+    if (widget.enabled) store.setNotes(widget.job.id, controller.text);
+  }
 
   @override
   void dispose() {
+    final text = controller.text;
+    final id = widget.job.id;
+    final s = store;
+    debounce?.cancel();
+    // Saving notifies listeners, which can't happen while this screen is being torn down.
+    if (widget.enabled) scheduleMicrotask(() => s.setNotes(id, text));
     controller.dispose();
     focus.dispose();
     super.dispose();
@@ -483,9 +526,14 @@ class _NotesState extends State<_Notes> {
     enabled: widget.enabled,
     minLines: 2,
     maxLines: 5,
+    maxLength: AppStore.maxNotes,
+    // Saved on every change; the offline queue keeps it as one change per job.
+    onChanged: (text) {
+      if (widget.enabled) store.setNotes(widget.job.id, text);
+    },
     onTapOutside: (_) => focus.unfocus(),
     style: const TextStyle(fontSize: 14),
-    decoration: const InputDecoration(hintText: 'What you found and what you did', labelText: 'Notes for the office'),
+    decoration: const InputDecoration(hintText: 'What you found and what you did', labelText: 'Notes for the office', counterText: ''),
   );
 }
 

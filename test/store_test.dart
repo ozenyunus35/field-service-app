@@ -12,7 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 final thursday = DateTime(2026, 10, 29, 10);
 
 const Strokes sig = [
-  [Offset(0.1, 0.5), Offset(0.3, 0.4), Offset(0.5, 0.6)],
+  [Offset(0.1, 0.5), Offset(0.3, 0.4), Offset(0.5, 0.6), Offset(0.7, 0.45)],
 ];
 
 Future<AppStore> fresh({DateTime? at}) async {
@@ -111,6 +111,7 @@ void main() {
     test('cannot complete without a signature or a name', () async {
       final s = await fresh();
       final j = s.current!;
+      s.arrive(j.id);
       for (final (i, c) in j.checklist.indexed) {
         if (c.required) s.toggleCheck(j.id, i);
       }
@@ -331,5 +332,200 @@ void main() {
       expect(plural(1, 'job'), '1 job');
       expect(plural(3, 'job'), '3 jobs');
     });
+  });
+
+  group('sync', () {
+    test('a sync cut short by a lost signal keeps the whole queue', () async {
+      final s = await fresh();
+      final j = s.current!;
+      s.setOffline(true);
+      s.toggleCheck(j.id, 0);
+      s.setOffline(false); // sync starts
+      s.setOffline(true); // and the signal drops before the server answers
+      s.addPhoto(j.id); // more work while offline
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(s.pending, hasLength(2));
+      expect(s.syncInterrupted, isTrue);
+      s.setOffline(false);
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(s.pending, isEmpty);
+      expect(s.syncInterrupted, isFalse);
+    });
+
+    test('the queue keeps one change per note and drops a box ticked and unticked', () async {
+      final s = await fresh();
+      final j = s.current!;
+      s.setOffline(true);
+      s.setNotes(j.id, 'Igniter');
+      s.setNotes(j.id, 'Igniter cracked, replaced');
+      for (var i = 0; i < 6; i++) {
+        s.toggleCheck(j.id, 0);
+      }
+      s.toggleCheck(j.id, 1);
+      expect(s.pending.map((p) => p.label), [contains('updated notes'), contains('checked')]);
+      expect(j.notes, 'Igniter cracked, replaced');
+    });
+  });
+
+  group('one job at a time', () {
+    test('another job waits until the current one is finished', () async {
+      final s = await fresh();
+      final open = s.todayJobs.where((j) => !j.done).toList();
+      expect(s.startTravel(open[0].id), isNull);
+      expect(s.startTravel(open[1].id), 'Finish ${open[0].ref} first');
+      expect(open[1].status, JobStatus.scheduled);
+    });
+
+    test("another day's job can't be started", () async {
+      final s = await fresh();
+      final future = s.jobs.firstWhere((j) => j.date == addDays(s.today, 1));
+      expect(s.startTravel(future.id), 'Scheduled for Tomorrow');
+      expect(s.arrive(future.id), 'Scheduled for Tomorrow');
+      expect(future.status, JobStatus.scheduled);
+    });
+
+    test('a job is signed off only on site, with a real signature and a short name', () async {
+      final s = await fresh();
+      final j = s.current!;
+      for (final (i, c) in j.checklist.indexed) {
+        if (c.required) s.toggleCheck(j.id, i);
+      }
+      expect(s.complete(j.id, labourMinutes: 60, signature: sig, signedBy: 'A'), 'Arrive on site first.');
+      s.arrive(j.id);
+      expect(
+        s.complete(
+          j.id,
+          labourMinutes: 60,
+          signature: const [
+            [Offset(0.5, 0.5)],
+          ],
+          signedBy: 'A',
+        ),
+        contains('too short'),
+      );
+      expect(s.complete(j.id, labourMinutes: 60, signature: sig, signedBy: 'x' * 61), contains('under 60'));
+      expect(s.complete(j.id, labourMinutes: 60, signature: sig, signedBy: 'Jordan'), isNull);
+    });
+
+    test('a completed job is read only', () async {
+      final s = await fresh();
+      final j = s.todayJobs.firstWhere((x) => x.done);
+      final photos = j.photos.length, notes = j.notes, checked = j.checked;
+      s.addPhoto(j.id);
+      s.setNotes(j.id, 'changed later');
+      s.toggleCheck(j.id, 0);
+      if (j.photos.isNotEmpty) s.removePhoto(j.id, j.photos.first.id);
+      expect((j.photos.length, j.notes, j.checked), (photos, notes, checked));
+    });
+
+    test('labour starts from the real time on site', () async {
+      var t = thursday;
+      SharedPreferences.setMockInitialValues({});
+      final s = AppStore(await SharedPreferences.getInstance(), clock: () => t);
+      final j = s.current!;
+      expect(s.suggestedLabour(j), AppStore.billable(j.duration));
+      s.arrive(j.id);
+      t = t.add(const Duration(hours: 2, minutes: 50));
+      expect(s.onSiteMinutes(j), 170);
+      expect(s.suggestedLabour(j), 180);
+    });
+
+    test('notes are capped', () async {
+      final s = await fresh();
+      final j = s.current!;
+      s.setNotes(j.id, 'n' * 1500);
+      expect(j.notes.length, AppStore.maxNotes);
+    });
+  });
+
+  test('a requested restock can be received', () async {
+    final s = await fresh();
+    final p = s.lowStock.first;
+    s.requestRestock(p.id);
+    s.receiveRestock(p.id);
+    expect(p.restockRequested, isFalse);
+    expect(p.qty, greaterThanOrEqualTo(p.min * 3));
+    expect(p.low, isFalse);
+  });
+
+  group('office changes', () {
+    test('only while offline, delivered at the next sync', () async {
+      final s = await fresh();
+      expect(s.simulateOfficeChanges(), contains('offline'));
+      s.setOffline(true);
+      expect(s.simulateOfficeChanges(), isNull);
+      expect(s.officeQueue, hasLength(3));
+      expect(s.simulateOfficeChanges(), contains('already'));
+    });
+
+    test('untouched jobs take the change; a job worked on offline becomes a conflict', () async {
+      final s = await fresh();
+      final cur = s.current!;
+      final next = s.todayJobs.where((j) => !j.closed && j.id != cur.id).first;
+      final nextStart = next.start;
+      s.setOffline(true);
+      s.simulateOfficeChanges();
+      s.arrive(cur.id);
+      s.addPart(cur.id, 'igniter');
+      final stock = s.part('igniter').qty;
+      s.setOffline(false);
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+
+      expect(next.start, nextStart + 60);
+      expect(s.todayJobs.any((j) => j.title == 'Burst pipe' && j.urgent), isTrue);
+      expect(s.syncNotes, hasLength(2));
+      expect(s.conflicts, hasLength(1));
+      expect(s.conflicts.single.message, contains('while you were working on it'));
+      expect(cur.status, JobStatus.onSite);
+
+      s.resolveConflict(0, useOffice: true);
+      expect(cur.status, JobStatus.cancelled);
+      expect(cur.parts, isEmpty);
+      expect(s.part('igniter').qty, stock + 1);
+      expect(s.current!.id, isNot(cur.id));
+    });
+
+    test('a job completed offline keeps its invoice', () async {
+      final s = await fresh();
+      final cur = s.current!;
+      s.setOffline(true);
+      s.simulateOfficeChanges();
+      s.arrive(cur.id);
+      for (final (i, c) in cur.checklist.indexed) {
+        if (c.required) s.toggleCheck(cur.id, i);
+      }
+      s.complete(cur.id, labourMinutes: 60, signature: sig, signedBy: 'Jordan');
+      s.setOffline(false);
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      expect(s.conflicts.single.message, contains('you completed it while offline'));
+      s.resolveConflict(0, useOffice: true);
+      expect(cur.done, isTrue);
+    });
+
+    test('office changes survive a reload', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final a = AppStore(prefs, clock: () => thursday);
+      a.setOffline(true);
+      a.simulateOfficeChanges();
+      final b = AppStore(prefs, clock: () => thursday);
+      expect(b.officeQueue, hasLength(3));
+      expect(b.offline, isTrue);
+    });
+  });
+
+  test('seed: one visit per customer a day, urgent calls only today or tomorrow', () {
+    for (var d = 0; d < 20; d++) {
+      final seed = buildSeed(thursday.add(Duration(days: d)));
+      final today = dateKey(thursday.add(Duration(days: d)));
+      final byDay = <String, List<String>>{};
+      for (final j in seed.jobs) {
+        byDay.putIfAbsent(j.date, () => []).add(j.customerId);
+        if (j.urgent && j.date.compareTo(today) >= 0) expect(j.date.compareTo(addDays(today, 1)) <= 0, isTrue, reason: '${j.ref} on ${j.date}');
+      }
+      for (final ids in byDay.values) {
+        expect(ids.toSet().length, ids.length);
+      }
+    }
   });
 }

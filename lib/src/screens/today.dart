@@ -22,8 +22,9 @@ class TodayScreen extends StatelessWidget {
     final jobs = s.todayJobs;
     final current = s.current;
     final done = jobs.where((j) => j.done).toList();
+    final live = jobs.where((j) => !j.cancelled).toList();
     final invoiced = done.fold<double>(0, (sum, j) => sum + s.invoice(j).total);
-    final booked = jobs.fold<int>(0, (sum, j) => sum + j.duration);
+    final booked = live.fold<int>(0, (sum, j) => sum + j.duration);
 
     return SafeArea(
       bottom: false,
@@ -57,6 +58,7 @@ class TodayScreen extends StatelessWidget {
           const SliverToBoxAdapter(
             child: Padding(padding: EdgeInsets.only(top: 8), child: SyncStrip()),
           ),
+          const SliverToBoxAdapter(child: SyncInbox()),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             sliver: SliverToBoxAdapter(
@@ -66,7 +68,7 @@ class TodayScreen extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Metric(label: 'Jobs done', value: '${done.length} of ${jobs.length}'),
+                          child: Metric(label: 'Jobs done', value: '${done.length} of ${live.length}'),
                         ),
                         Expanded(
                           child: Metric(label: 'Booked', value: duration(booked)),
@@ -154,6 +156,7 @@ class _DayBar extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: switch (j.status) {
                     JobStatus.completed => t.accent,
+                    JobStatus.cancelled => t.border,
                     JobStatus.onSite || JobStatus.travelling => t.accent.withValues(alpha: 0.45),
                     JobStatus.scheduled => t.surface2,
                   },

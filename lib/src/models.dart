@@ -1,6 +1,6 @@
 import 'dart:ui' show Offset;
 
-enum JobStatus { scheduled, travelling, onSite, completed }
+enum JobStatus { scheduled, travelling, onSite, completed, cancelled }
 
 enum Trade { heating, cooling, plumbing, controls }
 
@@ -109,6 +109,7 @@ class Job {
     this.signature,
     this.signedBy,
     this.labourMinutes,
+    this.cancelReason,
   }) : parts = parts ?? [],
        photos = photos ?? [];
 
@@ -118,8 +119,8 @@ class Job {
   /// Local date key, "YYYY-MM-DD".
   final String date;
 
-  /// Arrival window start in minutes after midnight; the window is one hour.
-  final int start;
+  /// Arrival window start in minutes after midnight; the window is one hour. The office can move it.
+  int start;
 
   /// Booked time on site, minutes.
   final int duration;
@@ -137,8 +138,15 @@ class Job {
   String? signedBy;
   int? labourMinutes;
 
+  /// Set when the office cancelled the job.
+  String? cancelReason;
+
   int get windowEnd => start + 60;
   bool get done => status == JobStatus.completed;
+  bool get cancelled => status == JobStatus.cancelled;
+
+  /// Completed or cancelled: nothing more to do on it.
+  bool get closed => done || cancelled;
   bool get active => status == JobStatus.travelling || status == JobStatus.onSite;
   int get requiredLeft => checklist.where((c) => c.required && !c.done).length;
   int get checked => checklist.where((c) => c.done).length;
@@ -166,6 +174,7 @@ class Job {
     'signature': signature?.map((s) => s.map((o) => [o.dx, o.dy]).toList()).toList(),
     'signedBy': signedBy,
     'labourMinutes': labourMinutes,
+    'cancelReason': cancelReason,
   };
 
   factory Job.fromJson(Map<String, dynamic> j) {
@@ -193,17 +202,72 @@ class Job {
       signature: (j['signature'] as List?)?.map((s) => (s as List).map((p) => Offset((p[0] as num).toDouble(), (p[1] as num).toDouble())).toList()).toList(),
       signedBy: j['signedBy'],
       labourMinutes: j['labourMinutes'],
+      cancelReason: j['cancelReason'],
     );
   }
 }
 
 class PendingChange {
-  PendingChange(this.label, this.at);
+  PendingChange(this.label, this.at, {this.key, this.jobId});
   final String label;
   final DateTime at;
 
-  Map<String, dynamic> toJson() => {'label': label, 'at': at.toIso8601String()};
-  factory PendingChange.fromJson(Map<String, dynamic> j) => PendingChange(j['label'], DateTime.parse(j['at']));
+  /// Changes with the same key replace each other in the queue (a note edited twice is one change);
+  /// for a checklist item, a second toggle cancels the first.
+  final String? key;
+
+  /// The job the change touches, so a sync can tell when the office changed the same job.
+  final String? jobId;
+
+  Map<String, dynamic> toJson() => {'label': label, 'at': at.toIso8601String(), 'key': key, 'jobId': jobId};
+  factory PendingChange.fromJson(Map<String, dynamic> j) => PendingChange(j['label'], DateTime.parse(j['at']), key: j['key'], jobId: j['jobId']);
+}
+
+enum OfficeChangeKind { cancel, reschedule, add }
+
+/// A change the office (dispatcher) made on the server, delivered to the van at the next sync.
+class OfficeChange {
+  OfficeChange({required this.id, required this.kind, required this.jobId, required this.at, this.reason = '', this.newStart, this.job});
+  final String id;
+  final OfficeChangeKind kind;
+  final String jobId;
+  final DateTime at;
+  final String reason;
+
+  /// For a reschedule: the new arrival window start, minutes after midnight.
+  final int? newStart;
+
+  /// For a new job.
+  final Job? job;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'kind': kind.name,
+    'jobId': jobId,
+    'at': at.toIso8601String(),
+    'reason': reason,
+    'newStart': newStart,
+    'job': job?.toJson(),
+  };
+  factory OfficeChange.fromJson(Map<String, dynamic> j) => OfficeChange(
+    id: j['id'],
+    kind: OfficeChangeKind.values.byName(j['kind']),
+    jobId: j['jobId'],
+    at: DateTime.parse(j['at']),
+    reason: j['reason'] ?? '',
+    newStart: j['newStart'],
+    job: j['job'] == null ? null : Job.fromJson(j['job']),
+  );
+}
+
+/// An office change that clashes with work done on the van while offline. The technician decides.
+class SyncConflict {
+  SyncConflict(this.change, this.message);
+  final OfficeChange change;
+  final String message;
+
+  Map<String, dynamic> toJson() => {'change': change.toJson(), 'message': message};
+  factory SyncConflict.fromJson(Map<String, dynamic> j) => SyncConflict(OfficeChange.fromJson(j['change']), j['message']);
 }
 
 class Invoice {

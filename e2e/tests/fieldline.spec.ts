@@ -117,7 +117,7 @@ test("progress is kept after a reload", async ({ page }) => {
 test("offline changes wait and then sync", async ({ page }) => {
   await open(page);
   await tab(page, "Profile").click();
-  await expect(page.getByRole("group", { name: /^Everything is synced/ })).toBeVisible();
+  await expect(page.getByText(/Everything is synced/)).toBeVisible();
   await page.getByRole("switch", { name: /^Work offline/ }).click();
   await tab(page, "Today").click();
   await expect(page.getByText("Offline. Changes are saved on this phone.")).toBeVisible();
@@ -138,6 +138,8 @@ test("van stock shows low parts and takes restock requests", async ({ page }) =>
   await button(page, "Request restock of Hot surface igniter").click();
   await expect(text(page, "Restock of Hot surface igniter requested from the warehouse.")).toBeVisible();
   await expect(button(page, "Request restock of Hot surface igniter")).toHaveCount(0);
+  await button(page, /^Requested\. Mark the restock of Hot surface igniter as received/).click();
+  await expect(text(page, /^Hot surface igniter restocked: \d+ in the van\.$/)).toBeVisible();
   await noSideScroll(page);
 });
 
@@ -168,4 +170,37 @@ test("desktop browsers show the app in a phone frame", async ({ page, isMobile }
   await open(page);
   await expect(text(page, "The technician's day, in one app.")).toBeVisible();
   await expect(button(page, "Source code")).toBeVisible();
+});
+
+test("one job at a time, and only on its day", async ({ page }) => {
+  await open(page);
+  await button(page, "Start travel").click();
+  await scrollTo(page, button(page, /^12:30 PM, /));
+  await button(page, /^12:30 PM, /).click();
+  await expect(button(page, /^Finish NB-\d+ first$/)).toBeDisabled();
+  await page.getByRole("button", { name: "Back" }).click();
+  await tab(page, "Schedule").click();
+  await button(page, /^Fri, Oct 30, \d+ jobs?$/).click();
+  await page.getByRole("button", { name: /, Scheduled/ }).first().click();
+  await expect(button(page, "Scheduled for Tomorrow")).toBeDisabled();
+});
+
+test("office changes made while offline arrive at the next sync, with a conflict to settle", async ({ page }) => {
+  await open(page);
+  await tab(page, "Profile").click();
+  await page.getByRole("switch", { name: /^Work offline/ }).click();
+  await button(page, "Simulate").click();
+  await expect(page.getByText(/3 changes from the office waiting for the next sync/)).toBeVisible();
+  await tab(page, "Today").click();
+  // Work on the current job while offline: the office cancels that same job.
+  await button(page, "Start travel").click();
+  await button(page, "Go online").click();
+  await expect(page.getByText("Sync conflict")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/The office cancelled NB-\d+ \(customer called: it is working again\) while you were working on it\./)).toBeVisible();
+  await expect(page.getByText(/^New urgent job NB-\d+: Burst pipe/)).toBeVisible();
+  await expect(page.getByText(/ moved to /)).toBeVisible();
+  await button(page, "Stop and cancel the job").click();
+  await expect(page.getByText("Sync conflict")).toHaveCount(0);
+  await scrollTo(page, button(page, /No heat, .*, Cancelled$/));
+  await noSideScroll(page);
 });

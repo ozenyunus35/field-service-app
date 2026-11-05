@@ -68,6 +68,7 @@ class SectionHeader extends StatelessWidget {
     JobStatus.travelling => (label: 'On the way', color: t.accent),
     JobStatus.onSite => (label: 'On site', color: t.warning),
     JobStatus.completed => (label: 'Completed', color: t.success),
+    JobStatus.cancelled => (label: 'Cancelled', color: t.danger),
   };
 }
 
@@ -351,6 +352,8 @@ class SyncStrip extends StatelessWidget {
                     child: Text(
                       s.syncing
                           ? 'Syncing ${plural(n, 'change')}…'
+                          : s.syncInterrupted
+                          ? 'Signal lost while syncing. Nothing was lost: ${plural(n, 'change')} will sync when you are back online.'
                           : (n == 0 ? 'Offline. Changes are saved on this phone.' : 'Offline. ${plural(n, 'change')} waiting to sync.'),
                       style: TextStyle(fontSize: 12.5, color: t.text),
                     ),
@@ -369,6 +372,82 @@ class SyncStrip extends StatelessWidget {
                 ],
               ),
             ),
+    );
+  }
+}
+
+/// What the last sync brought from the office, and any office change that clashes with work
+/// done offline, with the choice of keeping that work or taking the office's version.
+class SyncInbox extends StatelessWidget {
+  const SyncInbox({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = StoreScope.of(context);
+    final t = context.t;
+    final tt = Theme.of(context).textTheme;
+    if (s.conflicts.isEmpty && s.syncNotes.isEmpty) return const SizedBox(width: double.infinity);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: Column(
+        children: [
+          for (final (i, c) in s.conflicts.indexed) ...[
+            Panel(
+              color: t.surface2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(LucideIcons.triangleAlert, size: 15, color: t.warning),
+                      const SizedBox(width: 8),
+                      Semantics(header: true, child: Text('Sync conflict', style: tt.titleSmall)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(c.message, style: tt.bodyMedium),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      TextButton(onPressed: () => s.resolveConflict(i, useOffice: false), child: const Text('Keep my work')),
+                      if (!(s.jobs.where((j) => j.id == c.change.jobId).firstOrNull?.done ?? true))
+                        TextButton(
+                          onPressed: () => s.resolveConflict(i, useOffice: true),
+                          child: Text(c.change.kind == OfficeChangeKind.cancel ? 'Stop and cancel the job' : 'Use the office time'),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          if (s.syncNotes.isNotEmpty)
+            Panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(LucideIcons.inbox, size: 15, color: t.accent),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Semantics(header: true, child: Text('From the office', style: tt.titleSmall)),
+                      ),
+                      TextButton(onPressed: s.dismissSyncNotes, child: const Text('Dismiss')),
+                    ],
+                  ),
+                  for (final n in s.syncNotes)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(n, style: tt.bodyMedium),
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
