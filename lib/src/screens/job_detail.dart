@@ -329,10 +329,7 @@ class JobDetailScreen extends StatelessWidget {
                           )
                         : Column(
                             children: [
-                              for (final (i, q) in s.quotesFor(j.id).indexed) ...[
-                                if (i > 0) Divider(height: 1, color: t.border),
-                                _QuoteLine(job: j, quote: q),
-                              ],
+                              for (final (i, q) in s.quotesFor(j.id).indexed) ...[if (i > 0) Divider(height: 1, color: t.border), _QuoteLine(job: j, quote: q)],
                             ],
                           ),
                   ),
@@ -717,7 +714,6 @@ class _PartPickerState extends State<_PartPicker> {
   }
 }
 
-
 class _EquipmentLine extends StatelessWidget {
   const _EquipmentLine(this.e, {required this.today});
   final Equipment e;
@@ -775,7 +771,10 @@ class _SafetyCheckState extends State<_SafetyCheck> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 8, 0, 4),
-            child: Text(onSite ? 'Before any work on the appliance:' : 'On arrival, before any work on the appliance:', style: TextStyle(fontSize: 13, color: t.muted)),
+            child: Text(
+              onSite ? 'Before any work on the appliance:' : 'On arrival, before any work on the appliance:',
+              style: TextStyle(fontSize: 13, color: t.muted),
+            ),
           ),
           for (final (i, label) in AppStore.safetyChecks.indexed)
             CheckboxListTile(
@@ -828,7 +827,13 @@ class _QuoteLine extends StatelessWidget {
       title: Text('${quote.title} · ${money(total, cents: false)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
       subtitle: Text('${quote.ref} · $label', style: tt.bodySmall?.copyWith(color: color)),
       trailing: quote.status == QuoteStatus.open ? const Icon(LucideIcons.chevronRight, size: 16) : null,
-      onTap: quote.status == QuoteStatus.open ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => QuoteScreen(jobId: job.id, quoteId: quote.id))) : null,
+      onTap: quote.status == QuoteStatus.open
+          ? () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => QuoteScreen(jobId: job.id, quoteId: quote.id),
+              ),
+            )
+          : null,
     );
   }
 }

@@ -121,9 +121,23 @@ class _QuoteScreenState extends State<QuoteScreen> {
     StoreScope.of(context);
     final t = context.t;
     final tt = Theme.of(context).textTheme;
-    final draft = Quote(id: '', ref: '', jobId: j.id, customerId: j.customerId, title: title.text, trade: j.trade, minutes: AppStore.billable(minutes), items: items, createdAt: s.now());
+    final draft = Quote(
+      id: '',
+      ref: '',
+      jobId: j.id,
+      customerId: j.customerId,
+      title: title.text,
+      trade: j.trade,
+      minutes: AppStore.billable(minutes),
+      items: items,
+      createdAt: s.now(),
+    );
     final total = s.quoteTotal(draft);
-    final templates = [...?quoteTemplates[j.trade], for (final e in quoteTemplates.entries) if (e.key != j.trade) ...e.value];
+    final templates = [
+      ...?quoteTemplates[j.trade],
+      for (final e in quoteTemplates.entries)
+        if (e.key != j.trade) ...e.value,
+    ];
 
     return Scaffold(
       appBar: AppBar(title: Text(saved?.ref ?? 'New quote')),
@@ -186,7 +200,11 @@ class _QuoteScreenState extends State<QuoteScreen> {
                             onPressed: () => setState(() => item.qty > 1 ? item.qty-- : items.removeAt(i)),
                             icon: Icon(item.qty > 1 ? LucideIcons.minus : LucideIcons.trash2, size: 15),
                           ),
-                          IconButton(tooltip: 'One more ${item.label}', onPressed: () => setState(() => item.qty++), icon: const Icon(LucideIcons.plus, size: 15)),
+                          IconButton(
+                            tooltip: 'One more ${item.label}',
+                            onPressed: () => setState(() => item.qty++),
+                            icon: const Icon(LucideIcons.plus, size: 15),
+                          ),
                         ],
                       ],
                     ),
@@ -200,7 +218,11 @@ class _QuoteScreenState extends State<QuoteScreen> {
                       children: [
                         Expanded(
                           flex: 3,
-                          child: TextField(controller: label, maxLength: 60, decoration: const InputDecoration(labelText: 'Item', counterText: '')),
+                          child: TextField(
+                            controller: label,
+                            maxLength: 60,
+                            decoration: const InputDecoration(labelText: 'Item', counterText: ''),
+                          ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
@@ -225,9 +247,17 @@ class _QuoteScreenState extends State<QuoteScreen> {
               children: [
                 Expanded(child: Text('${duration(AppStore.billable(minutes))} at ${money(s.tech.hourlyRate, cents: false)}/h', style: tt.titleSmall)),
                 if (editable) ...[
-                  IconButton.outlined(tooltip: 'Less labour', onPressed: minutes > 30 ? () => setState(() => minutes -= 30) : null, icon: const Icon(LucideIcons.minus, size: 15)),
+                  IconButton.outlined(
+                    tooltip: 'Less labour',
+                    onPressed: minutes > 30 ? () => setState(() => minutes -= 30) : null,
+                    icon: const Icon(LucideIcons.minus, size: 15),
+                  ),
                   const SizedBox(width: 6),
-                  IconButton.outlined(tooltip: 'More labour', onPressed: minutes < 600 ? () => setState(() => minutes += 30) : null, icon: const Icon(LucideIcons.plus, size: 15)),
+                  IconButton.outlined(
+                    tooltip: 'More labour',
+                    onPressed: minutes < 600 ? () => setState(() => minutes += 30) : null,
+                    icon: const Icon(LucideIcons.plus, size: 15),
+                  ),
                 ],
               ],
             ),

@@ -268,7 +268,6 @@ class _Bars extends StatelessWidget {
   }
 }
 
-
 /// Today's hours (from the job times and breaks), money taken, and texts sent to customers.
 class _Today extends StatelessWidget {
   const _Today();
@@ -308,9 +307,19 @@ class _Today extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Expanded(child: Metric(label: 'Worked', value: duration(sheet.worked), sub: sheet.clockIn == null ? 'Not started' : 'Since ${clockOf(sheet.clockIn!)}')),
-                  Expanded(child: Metric(label: 'Driving', value: duration(sheet.travel))),
-                  Expanded(child: Metric(label: 'On site', value: duration(sheet.onSite))),
+                  Expanded(
+                    child: Metric(
+                      label: 'Worked',
+                      value: duration(sheet.worked),
+                      sub: sheet.clockIn == null ? 'Not started' : 'Since ${clockOf(sheet.clockIn!)}',
+                    ),
+                  ),
+                  Expanded(
+                    child: Metric(label: 'Driving', value: duration(sheet.travel)),
+                  ),
+                  Expanded(
+                    child: Metric(label: 'On site', value: duration(sheet.onSite)),
+                  ),
                 ],
               ),
               const SizedBox(height: 10),
@@ -329,9 +338,15 @@ class _Today extends StatelessWidget {
         Panel(
           child: Row(
             children: [
-              Expanded(child: Metric(label: 'Card', value: money(money0.card, cents: false))),
-              Expanded(child: Metric(label: 'Cash', value: money(money0.cash, cents: false))),
-              Expanded(child: Metric(label: 'To invoice', value: money(money0.invoice, cents: false))),
+              Expanded(
+                child: Metric(label: 'Card', value: money(money0.card, cents: false)),
+              ),
+              Expanded(
+                child: Metric(label: 'Cash', value: money(money0.cash, cents: false)),
+              ),
+              Expanded(
+                child: Metric(label: 'To invoice', value: money(money0.invoice, cents: false)),
+              ),
             ],
           ),
         ),

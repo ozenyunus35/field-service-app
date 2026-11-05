@@ -248,7 +248,13 @@ class _CompleteScreenState extends State<CompleteScreen> {
                 child: FilledButton.icon(
                   onPressed: blockers.isEmpty && name.text.trim().isNotEmpty ? _submit : null,
                   icon: const Icon(LucideIcons.send, size: 16),
-                  label: Text('Complete · ${switch (pay) { PayMethod.card => 'card', PayMethod.cash => 'cash', PayMethod.invoice => 'invoice' }} ${money(inv.total)}'),
+                  label: Text(
+                    'Complete · ${switch (pay) {
+                      PayMethod.card => 'card',
+                      PayMethod.cash => 'cash',
+                      PayMethod.invoice => 'invoice',
+                    }} ${money(inv.total)}',
+                  ),
                 ),
               ),
             ],

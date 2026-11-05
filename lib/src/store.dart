@@ -313,7 +313,8 @@ class AppStore extends ChangeNotifier {
   String? confirmSafety(String id, List<bool> ticked) {
     final j = job(id);
     if (!j.needsSafetyCheck || j.safetyCheckedAt != null || j.closed) return null;
-    if (ticked.length != safetyChecks.length || ticked.contains(false)) return 'Tick every safety check. If one fails, make the appliance safe and call the office.';
+    if (ticked.length != safetyChecks.length || ticked.contains(false))
+      return 'Tick every safety check. If one fails, make the appliance safe and call the office.';
     j.safetyCheckedAt = now();
     _commit('${j.ref}: site safety check done', jobId: j.id);
     return null;
@@ -335,7 +336,14 @@ class AppStore extends ChangeNotifier {
   /// The labour to start the sign-off with: the real time on site, in billable steps.
   int suggestedLabour(Job j) => billable(onSiteMinutes(j));
 
-  String? complete(String id, {required int labourMinutes, required Strokes signature, required String signedBy, PayMethod pay = PayMethod.invoice, double? tendered}) {
+  String? complete(
+    String id, {
+    required int labourMinutes,
+    required Strokes signature,
+    required String signedBy,
+    PayMethod pay = PayMethod.invoice,
+    double? tendered,
+  }) {
     final j = job(id);
     if (j.done) return 'This job is already completed.';
     if (j.cancelled) return 'The office cancelled this job.';
@@ -355,7 +363,13 @@ class AppStore extends ChangeNotifier {
       ..labourMinutes = billable(labourMinutes)
       ..signature = signature
       ..signedBy = signedBy.trim();
-    j.payment = Payment(method: pay, amount: invoice(j).total, at: now(), receipt: 'R-${j.ref.substring(3)}', tendered: pay == PayMethod.cash ? tendered : null);
+    j.payment = Payment(
+      method: pay,
+      amount: invoice(j).total,
+      at: now(),
+      receipt: 'R-${j.ref.substring(3)}',
+      tendered: pay == PayMethod.cash ? tendered : null,
+    );
     for (final e in equipment.where((e) => e.customerId == j.customerId && e.trade == j.trade)) {
       e.lastService = today;
     }
@@ -437,7 +451,8 @@ class AppStore extends ChangeNotifier {
           customerId: c.id,
           jobId: j.id,
           at: now(),
-          body: 'Hi ${c.name.split(' ').first}, this is ${tech.name.split(' ').first} from Northbeam. I am running late: new arrival around ${clock(eta)} (your window was ${window(j.start, j.windowEnd)}). Sorry for the wait.',
+          body:
+              'Hi ${c.name.split(' ').first}, this is ${tech.name.split(' ').first} from Northbeam. I am running late: new arrival around ${clock(eta)} (your window was ${window(j.start, j.windowEnd)}). Sorry for the wait.',
         ),
       );
       lateNotified[j.id] = e[j.id]!;
@@ -514,7 +529,11 @@ class AppStore extends ChangeNotifier {
       duration: q.minutes,
       drive: 20,
       description: 'Quoted work (${q.ref}, ${money(quoteTotal(q).total)}): ${q.items.map((i) => '${i.qty} × ${i.label}').join(', ')}.',
-      checklist: [CheckItem('Confirm the quoted scope with the customer', required: true), CheckItem('Complete the quoted work', required: true), CheckItem('Test, clean up and walk the customer through it', required: true)],
+      checklist: [
+        CheckItem('Confirm the quoted scope with the customer', required: true),
+        CheckItem('Complete the quoted work', required: true),
+        CheckItem('Test, clean up and walk the customer through it', required: true),
+      ],
     );
     jobs.add(job);
     q
@@ -568,8 +587,13 @@ class AppStore extends ChangeNotifier {
     final day = todayJobs.where((j) => j.startedAt != null && dateKey(j.startedAt!) == today).toList();
     final starts = day.map((j) => j.startedAt!).toList()..sort();
     final clockIn = starts.isEmpty ? null : starts.first;
-    final travel = day.fold<int>(0, (s, j) => s + ((j.arrivedAt ?? (j.status == JobStatus.travelling ? now() : j.startedAt!)).difference(j.startedAt!).inMinutes));
-    final onSite = day.where((j) => j.arrivedAt != null).fold<int>(0, (s, j) => s + ((j.completedAt ?? (j.status == JobStatus.onSite ? now() : j.arrivedAt!)).difference(j.arrivedAt!).inMinutes));
+    final travel = day.fold<int>(
+      0,
+      (s, j) => s + ((j.arrivedAt ?? (j.status == JobStatus.travelling ? now() : j.startedAt!)).difference(j.startedAt!).inMinutes),
+    );
+    final onSite = day
+        .where((j) => j.arrivedAt != null)
+        .fold<int>(0, (s, j) => s + ((j.completedAt ?? (j.status == JobStatus.onSite ? now() : j.arrivedAt!)).difference(j.arrivedAt!).inMinutes));
     final brk = breaks.where((b) => dateKey(b.start) == today).fold<int>(0, (s, b) => s + (b.end ?? now()).difference(b.start).inMinutes);
     final worked = clockIn == null ? 0 : math.max(0, now().difference(clockIn).inMinutes - brk);
     return (clockIn: clockIn, travel: travel, onSite: onSite, breaks: brk, worked: worked, overtime: math.max(0, worked - 8 * 60));

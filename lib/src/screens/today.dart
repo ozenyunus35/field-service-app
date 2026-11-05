@@ -313,7 +313,6 @@ class _IconAction extends StatelessWidget {
 /// Shown under the company name in a few places.
 String companyLine(AppStore s) => '$company · ${s.tech.van}';
 
-
 /// Customers who will be waiting past their arrival window, with one tap to text them the new time.
 class _RunningLate extends StatelessWidget {
   const _RunningLate();
@@ -337,14 +336,19 @@ class _RunningLate extends StatelessWidget {
               children: [
                 Icon(LucideIcons.clockAlert, size: 15, color: t.danger),
                 const SizedBox(width: 8),
-                Expanded(child: Semantics(header: true, child: Text('Running late', style: tt.titleSmall))),
+                Expanded(
+                  child: Semantics(header: true, child: Text('Running late', style: tt.titleSmall)),
+                ),
               ],
             ),
             const SizedBox(height: 4),
             for (final j in late)
               Padding(
                 padding: const EdgeInsets.only(top: 3),
-                child: Text('${s.customer(j.customerId).name}: arriving around ${clock(AppStore.roundEta(eta[j.id]!))}, window ${window(j.start, j.windowEnd)}', style: tt.bodyMedium),
+                child: Text(
+                  '${s.customer(j.customerId).name}: arriving around ${clock(AppStore.roundEta(eta[j.id]!))}, window ${window(j.start, j.windowEnd)}',
+                  style: tt.bodyMedium,
+                ),
               ),
             const SizedBox(height: 6),
             Align(

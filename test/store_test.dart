@@ -576,7 +576,10 @@ void main() {
       final j = s.current!;
       ready(s, j);
       final total = s.invoice(j, labourMinutes: 60).total;
-      expect(s.complete(j.id, labourMinutes: 60, signature: sig, signedBy: 'Jordan', pay: PayMethod.cash, tendered: total - 1), contains('less than the total'));
+      expect(
+        s.complete(j.id, labourMinutes: 60, signature: sig, signedBy: 'Jordan', pay: PayMethod.cash, tendered: total - 1),
+        contains('less than the total'),
+      );
       expect(s.complete(j.id, labourMinutes: 60, signature: sig, signedBy: 'Jordan', pay: PayMethod.cash, tendered: 400), isNull);
       expect(j.payment!.method, PayMethod.cash);
       expect(j.payment!.change, closeTo(400 - total, 0.001));
@@ -635,7 +638,16 @@ void main() {
       expect(total.items, 1545);
       expect(total.labour, 440);
       expect(total.tax, closeTo(158.36, 0.01));
-      expect(s.acceptQuote(q.id, signature: const [[Offset(0.5, 0.5)]], signedBy: 'Jordan'), contains('sign'));
+      expect(
+        s.acceptQuote(
+          q.id,
+          signature: const [
+            [Offset(0.5, 0.5)],
+          ],
+          signedBy: 'Jordan',
+        ),
+        contains('sign'),
+      );
       expect(s.acceptQuote(q.id, signature: sig, signedBy: 'Jordan'), isNull);
       final booked = s.job(q.followUpJobId!);
       expect(booked.date.compareTo(s.today), greaterThan(0));

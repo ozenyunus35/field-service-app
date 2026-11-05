@@ -294,7 +294,6 @@ class Invoice {
   double get total => subtotal + tax;
 }
 
-
 enum PayMethod { card, cash, invoice }
 
 /// What the customer paid at sign-off. Card and cash are taken on site; "invoice" is billed later.
@@ -322,7 +321,17 @@ class Payment {
 
 /// An appliance at a customer's address, with its service record.
 class Equipment {
-  Equipment({required this.id, required this.customerId, required this.trade, required this.kind, required this.make, required this.model, required this.serial, required this.installed, this.lastService});
+  Equipment({
+    required this.id,
+    required this.customerId,
+    required this.trade,
+    required this.kind,
+    required this.make,
+    required this.model,
+    required this.serial,
+    required this.installed,
+    this.lastService,
+  });
   final String id, customerId, kind, make, model, serial;
   final Trade trade;
   final int installed;
@@ -438,7 +447,8 @@ class CustomerMessage {
   final DateTime at;
 
   Map<String, dynamic> toJson() => {'customerId': customerId, 'jobId': jobId, 'at': at.toIso8601String(), 'body': body};
-  factory CustomerMessage.fromJson(Map<String, dynamic> j) => CustomerMessage(customerId: j['customerId'], jobId: j['jobId'], at: DateTime.parse(j['at']), body: j['body']);
+  factory CustomerMessage.fromJson(Map<String, dynamic> j) =>
+      CustomerMessage(customerId: j['customerId'], jobId: j['jobId'], at: DateTime.parse(j['at']), body: j['body']);
 }
 
 /// A break in the working day; [end] is null while it lasts.

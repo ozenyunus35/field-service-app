@@ -425,7 +425,16 @@ Seed buildSeed(DateTime now) {
     if (!equipment.any((e) => e.customerId == j.customerId && e.trade == j.trade)) {
       final (trade, kind, models) = _equipment.firstWhere((e) => e.$1 == j.trade);
       equipment.add(
-        Equipment(id: '${j.customerId}-${trade.name}', customerId: j.customerId, trade: trade, kind: kind, make: models.first.split(' ').first, model: models.first, serial: 'SN${1000000 + r.below(8999999)}', installed: 2010 + r.below(14)),
+        Equipment(
+          id: '${j.customerId}-${trade.name}',
+          customerId: j.customerId,
+          trade: trade,
+          kind: kind,
+          make: models.first.split(' ').first,
+          model: models.first,
+          serial: 'SN${1000000 + r.below(8999999)}',
+          installed: 2010 + r.below(14),
+        ),
       );
     }
   }

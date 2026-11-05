@@ -29,7 +29,8 @@ class TimelineJob extends StatelessWidget {
     final eta = raw == null ? null : AppStore.roundEta(raw);
     return Semantics(
       button: true,
-      label: '${clock(job.start)}, ${job.title}, ${c.name}, ${look.label}${job.urgent && !job.closed ? ', urgent' : ''}${eta != null ? ', arriving around ${clock(eta)}${late ? ', late' : ''}' : ''}',
+      label:
+          '${clock(job.start)}, ${job.title}, ${c.name}, ${look.label}${job.urgent && !job.closed ? ', urgent' : ''}${eta != null ? ', arriving around ${clock(eta)}${late ? ', late' : ''}' : ''}',
       excludeSemantics: true,
       child: InkWell(
         onTap: () => openJob(context, job),
