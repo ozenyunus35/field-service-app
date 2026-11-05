@@ -17,15 +17,27 @@ const text = (page: Page, t: string | RegExp) => page.locator("flt-semantics-hos
  * Scrolls the app's list until the target sits well inside the screen, clear of the bottom bars.
  * Flutter turns DOM scrolling of its semantics nodes into scroll actions. Playwright's own
  * scroll-into-view would move the list under the pointer mid-click, so tests scroll first.
+ * The DOM moves before Flutter has scrolled and redrawn (on a slow machine, by seconds), so each
+ * step waits for Flutter's frames, and the target only counts as in view once its box holds still.
  */
 async function scrollTo(page: Page, target: ReturnType<Page["locator"]>) {
-  const inView = async () => {
-    if (!(await target.count())) return false;
-    const box = await target.first().boundingBox();
+  const settle = () =>
+    page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(done, 150)))));
+  const box = async () => (await target.count()) ? await target.first().boundingBox() : null;
+  const inView = (b: Awaited<ReturnType<typeof box>>) => {
     const height = page.viewportSize()!.height;
-    return !!box && box.y > 60 && box.y + box.height < height - 120;
+    return !!b && b.y > 60 && b.y + b.height < height - 120;
   };
-  for (let i = 0; i < 20 && !(await inView()); i++) {
+  for (let i = 0; i < 30; i++) {
+    await settle();
+    const before = await box();
+    if (inView(before)) {
+      await page.waitForTimeout(250);
+      await settle();
+      const after = await box();
+      if (inView(after) && after!.y === before!.y) break;
+      continue;
+    }
     await page.evaluate(() => {
       const lists = [...document.querySelectorAll("flt-semantics")].filter(
         (e) => ["scroll", "auto"].includes(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight,
@@ -33,9 +45,25 @@ async function scrollTo(page: Page, target: ReturnType<Page["locator"]>) {
       const list = lists.at(-1);
       if (list) list.scrollTop += 150;
     });
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(150);
   }
   await expect(target.first()).toBeVisible();
+}
+
+/**
+ * Draws a signature on the pad, and draws again if the browser dropped the stroke (WebKit
+ * sometimes does while the list settles), until [signed] says the app took it.
+ */
+async function sign(page: Page, pad: ReturnType<Page["locator"]>, signed: () => Promise<boolean>) {
+  for (let attempt = 0; attempt < 4 && !(await signed()); attempt++) {
+    await scrollTo(page, pad);
+    const b = (await pad.boundingBox())!;
+    await page.mouse.move(b.x + 30, b.y + b.height / 2);
+    await page.mouse.down();
+    for (let i = 1; i <= 12; i++) await page.mouse.move(b.x + 30 + i * 18, b.y + b.height / 2 + (i % 2 ? -14 : 14), { steps: 3 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+  }
 }
 const tab = (page: Page, name: string | RegExp) => page.getByRole("tab", { name });
 
@@ -70,6 +98,7 @@ test("a technician works a job from travel to signed invoice", async ({ page }) 
     await box.click();
     await expect(box).toBeChecked();
   }
+  await scrollTo(page, button(page, "Confirm safety check"));
   await button(page, "Confirm safety check").click();
   await expect(page.getByText(/^Safety check done at /)).toBeVisible();
   for (const label of ["Check thermostat and power", "Inspect hot surface igniter", "Check pressure switch and venting", "Confirm a full heating cycle"]) {
@@ -94,18 +123,8 @@ test("a technician works a job from travel to signed invoice", async ({ page }) 
   await expect(submit).toBeDisabled();
 
   // The pad is a plain text node in the tree; its box is the drawing area.
-  const pad = page.locator("flt-semantics").filter({ hasText: /^Signature pad, empty/ }).last();
-  await scrollTo(page, pad);
-  // Sign, and sign again if the browser dropped the stroke (WebKit sometimes does while the list settles).
-  for (let attempt = 0; attempt < 3 && !(await submit.isEnabled()); attempt++) {
-    await page.waitForTimeout(300);
-    const b = (await pad.boundingBox())!;
-    await page.mouse.move(b.x + 30, b.y + b.height / 2);
-    await page.mouse.down();
-    for (let i = 1; i <= 12; i++) await page.mouse.move(b.x + 30 + i * 18, b.y + b.height / 2 + (i % 2 ? -14 : 14), { steps: 3 });
-    await page.mouse.up();
-    await page.waitForTimeout(200);
-  }
+  const pad = page.locator("flt-semantics").filter({ hasText: /^Signature pad, (empty|signed)/ }).last();
+  await sign(page, pad, () => submit.isEnabled());
   await expect(submit).toBeEnabled();
   // Paid in cash, the exact amount.
   await scrollTo(page, button(page, "Cash"));
@@ -237,17 +256,8 @@ test("a quote found on site is accepted and booked", async ({ page }) => {
   await expect(page.getByRole("group", { name: /Hot surface igniter kit 1 × \$120\.00/ })).toBeVisible();
   const accept = button(page, /^Accept \$/);
   await expect(accept).toBeDisabled();
-  const pad = page.locator("flt-semantics").filter({ hasText: /^Signature pad, empty/ }).last();
-  await scrollTo(page, pad);
-  for (let attempt = 0; attempt < 3 && !(await accept.isEnabled()); attempt++) {
-    await page.waitForTimeout(300);
-    const b = (await pad.boundingBox())!;
-    await page.mouse.move(b.x + 30, b.y + b.height / 2);
-    await page.mouse.down();
-    for (let i = 1; i <= 12; i++) await page.mouse.move(b.x + 30 + i * 18, b.y + b.height / 2 + (i % 2 ? -14 : 14), { steps: 3 });
-    await page.mouse.up();
-    await page.waitForTimeout(200);
-  }
+  const pad = page.locator("flt-semantics").filter({ hasText: /^Signature pad, (empty|signed)/ }).last();
+  await sign(page, pad, () => accept.isEnabled());
   await accept.click();
   await expect(text(page, /^Accepted\. NB-\d+ is booked for /)).toBeVisible();
   // The quote stays on the job, marked accepted with the booked job.
