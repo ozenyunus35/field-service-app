@@ -8,7 +8,8 @@ export default defineConfig({
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
-  timeout: 60_000,
+  // The CI's Linux WebKit draws Flutter on the CPU and takes seconds per click.
+  timeout: process.env.CI ? 150_000 : 60_000,
   expect: { timeout: 10_000 },
   use: {
     baseURL: live ?? "http://localhost:4174/field-service-app/",

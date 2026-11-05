@@ -51,6 +51,25 @@ async function scrollTo(page: Page, target: ReturnType<Page["locator"]>) {
 }
 
 /**
+ * Clicks [target] until [done] shows. On a slow machine (the CI's Linux WebKit) a click now and
+ * then lands while Flutter is still drawing the last frame, and the app never sees it.
+ */
+async function tapUntil(page: Page, target: ReturnType<Page["locator"]>, done: ReturnType<Page["locator"]>) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (await done.count()) return;
+    await scrollTo(page, target);
+    await target.first().click();
+    try {
+      await expect(done.first()).toBeVisible({ timeout: 8_000 });
+      return;
+    } catch {
+      // Try again.
+    }
+  }
+  await expect(done.first()).toBeVisible();
+}
+
+/**
  * Draws a signature on the pad, and draws again if the browser dropped the stroke (WebKit
  * sometimes does while the list settles), until [signed] says the app took it.
  */
@@ -98,9 +117,7 @@ test("a technician works a job from travel to signed invoice", async ({ page }) 
     await box.click();
     await expect(box).toBeChecked();
   }
-  await scrollTo(page, button(page, "Confirm safety check"));
-  await button(page, "Confirm safety check").click();
-  await expect(page.getByText(/^Safety check done at /)).toBeVisible();
+  await tapUntil(page, button(page, "Confirm safety check"), page.getByText(/^Safety check done at /));
   for (const label of ["Check thermostat and power", "Inspect hot surface igniter", "Check pressure switch and venting", "Confirm a full heating cycle"]) {
     const box = page.getByRole("checkbox", { name: new RegExp(`^${label}`) });
     await scrollTo(page, box);
@@ -158,8 +175,10 @@ test("offline changes wait and then sync", async ({ page }) => {
   await button(page, "Start travel").click();
   await expect(page.getByText("Offline. 1 change waiting to sync.")).toBeVisible();
   await button(page, "Go online").click();
-  await expect(page.getByText(/Syncing 1 change/)).toBeVisible();
-  await expect(page.getByText(/Offline|Syncing/)).toHaveCount(0, { timeout: 10_000 });
+  // "Syncing" shows for about a second, which a slow browser can miss; the end state is what counts.
+  await expect(page.getByText(/Offline|Syncing/)).toHaveCount(0, { timeout: 15_000 });
+  const pending = () => page.evaluate(() => (JSON.parse(JSON.parse(localStorage.getItem("flutter.fieldline:state") ?? '""') || "{}").pending ?? []).length);
+  await expect.poll(pending).toBe(0);
 });
 
 test("van stock shows low parts and takes restock requests", async ({ page }) => {
@@ -250,8 +269,7 @@ test("a quote found on site is accepted and booked", async ({ page }) => {
   await button(page, "Start travel").click();
   await button(page, "Arrived on site").click();
   await button(page, /^No heat Urgent/).click();
-  await scrollTo(page, button(page, "New quote"));
-  await button(page, "New quote").click();
+  await tapUntil(page, button(page, "New quote"), page.getByRole("heading", { name: "New quote" }));
   await page.getByRole("checkbox", { name: "Igniter and flame sensor upgrade" }).click();
   await expect(page.getByRole("group", { name: /Hot surface igniter kit 1 × \$120\.00/ })).toBeVisible();
   const accept = button(page, /^Accept \$/);
