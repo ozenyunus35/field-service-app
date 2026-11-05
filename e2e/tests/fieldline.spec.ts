@@ -20,6 +20,8 @@ const text = (page: Page, t: string | RegExp) => page.locator("flt-semantics-hos
  * The DOM moves before Flutter has scrolled and redrawn (on a slow machine, by seconds), so each
  * step waits for Flutter's frames, and the target only counts as in view once its box holds still.
  */
+const mobile = (page: Page) => test.info().project.use.isMobile === true;
+
 async function scrollTo(page: Page, target: ReturnType<Page["locator"]>) {
   const settle = () =>
     page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(done, 150)))));
@@ -38,13 +40,28 @@ async function scrollTo(page: Page, target: ReturnType<Page["locator"]>) {
       if (inView(after) && after!.y === before!.y) break;
       continue;
     }
-    await page.evaluate(() => {
-      const lists = [...document.querySelectorAll("flt-semantics")].filter(
-        (e) => ["scroll", "auto"].includes(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight,
-      );
-      const list = lists.at(-1);
-      if (list) list.scrollTop += 150;
+    // A desktop browser scrolls with the wheel, which Flutter handles itself. Mobile WebKit has no
+    // wheel, so there the list's DOM node is scrolled and Flutter follows.
+    const list = await page.evaluate(() => {
+      // Flutter marks each scrollable with an overflow child; take the innermost tall one on screen.
+      const lists = [...document.querySelectorAll("flt-semantics-scroll-overflow")]
+        .map((e) => e.parentElement!)
+        .filter((e) => e.getBoundingClientRect().height > 200 && e.scrollHeight > e.clientHeight);
+      const r = lists.at(-1)?.getBoundingClientRect();
+      return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null;
     });
+    if (list && !mobile(page)) {
+      await page.mouse.move(list.x, list.y);
+      await page.mouse.wheel(0, 150);
+    } else {
+      await page.evaluate(() => {
+        const lists = [...document.querySelectorAll("flt-semantics")].filter(
+          (e) => ["scroll", "auto"].includes(getComputedStyle(e).overflowY) && e.scrollHeight > e.clientHeight,
+        );
+        const list = lists.at(-1);
+        if (list) list.scrollTop += 150;
+      });
+    }
     await page.waitForTimeout(150);
   }
   await expect(target.first()).toBeVisible();
