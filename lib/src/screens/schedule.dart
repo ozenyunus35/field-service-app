@@ -6,6 +6,7 @@ import '../store.dart';
 import '../theme.dart';
 import '../ui.dart';
 import 'job_tile.dart';
+import '../i18n.dart';
 
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({super.key});
@@ -47,7 +48,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               children: [
                 Text(dayLong(day), style: tt.bodySmall),
                 const SizedBox(height: 2),
-                Semantics(header: true, child: Text('Schedule', style: tt.headlineSmall)),
+                Semantics(header: true, child: Text(tr('Schedule'), style: tt.headlineSmall)),
               ],
             ),
           ),
@@ -130,7 +131,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                         children: [
                           Icon(LucideIcons.calendar, size: 22, color: t.faint),
                           const SizedBox(height: 8),
-                          Text('No jobs on this day', style: tt.bodySmall),
+                          Text(tr('No jobs on this day'), style: tt.bodySmall),
                         ],
                       ),
                     )

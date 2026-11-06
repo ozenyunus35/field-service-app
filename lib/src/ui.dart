@@ -7,11 +7,12 @@ import 'format.dart';
 import 'models.dart';
 import 'store.dart';
 import 'theme.dart';
+import 'i18n.dart';
 
 void toast(BuildContext context, String message) {
   final m = ScaffoldMessenger.of(context);
   m.hideCurrentSnackBar();
-  m.showSnackBar(SnackBar(content: Text(message), duration: const Duration(milliseconds: 2600)));
+  m.showSnackBar(SnackBar(content: Text(tr(message)), duration: const Duration(milliseconds: 2600)));
 }
 
 class Panel extends StatelessWidget {
@@ -64,11 +65,11 @@ class SectionHeader extends StatelessWidget {
 ({String label, Color color}) statusLook(BuildContext context, JobStatus s) {
   final t = context.t;
   return switch (s) {
-    JobStatus.scheduled => (label: 'Scheduled', color: t.faint),
-    JobStatus.travelling => (label: 'On the way', color: t.accent),
-    JobStatus.onSite => (label: 'On site', color: t.warning),
-    JobStatus.completed => (label: 'Completed', color: t.success),
-    JobStatus.cancelled => (label: 'Cancelled', color: t.danger),
+    JobStatus.scheduled => (label: tr('Scheduled'), color: t.faint),
+    JobStatus.travelling => (label: tr('On the way'), color: t.accent),
+    JobStatus.onSite => (label: tr('On site'), color: t.warning),
+    JobStatus.completed => (label: tr('Completed'), color: t.success),
+    JobStatus.cancelled => (label: tr('Cancelled'), color: t.danger),
   };
 }
 
@@ -246,7 +247,7 @@ class PhotoArt extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = context.t;
     return Semantics(
-      label: '${photo.label} photo, ${clockOf(photo.at)}',
+      label: tr('${photo.label} photo, ${clockOf(photo.at)}'),
       image: true,
       child: Stack(
         fit: StackFit.expand,
@@ -351,10 +352,10 @@ class SyncStrip extends StatelessWidget {
                   Expanded(
                     child: Text(
                       s.syncing
-                          ? 'Syncing ${plural(n, 'change')}…'
+                          ? tr('Syncing ${plural(n, 'change')}…')
                           : s.syncInterrupted
-                          ? 'Signal lost while syncing. Nothing was lost: ${plural(n, 'change')} will sync when you are back online.'
-                          : (n == 0 ? 'Offline. Changes are saved on this phone.' : 'Offline. ${plural(n, 'change')} waiting to sync.'),
+                          ? tr('Signal lost while syncing. Nothing was lost: ${plural(n, 'change')} will sync when you are back online.')
+                          : (n == 0 ? tr('Offline. Changes are saved on this phone.') : tr('Offline. ${plural(n, 'change')} waiting to sync.')),
                       style: TextStyle(fontSize: 12.5, color: t.text),
                     ),
                   ),
@@ -367,7 +368,7 @@ class SyncStrip extends StatelessWidget {
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         textStyle: const TextStyle(fontFamily: 'Inter', fontSize: 12.5, fontWeight: FontWeight.w600),
                       ),
-                      child: const Text('Go online'),
+                      child: Text(tr('Go online')),
                     ),
                 ],
               ),
@@ -401,20 +402,20 @@ class SyncInbox extends StatelessWidget {
                     children: [
                       Icon(LucideIcons.triangleAlert, size: 15, color: t.warning),
                       const SizedBox(width: 8),
-                      Semantics(header: true, child: Text('Sync conflict', style: tt.titleSmall)),
+                      Semantics(header: true, child: Text(tr('Sync conflict'), style: tt.titleSmall)),
                     ],
                   ),
                   const SizedBox(height: 6),
-                  Text(c.message, style: tt.bodyMedium),
+                  Text(tr(c.message), style: tt.bodyMedium),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     children: [
-                      TextButton(onPressed: () => s.resolveConflict(i, useOffice: false), child: const Text('Keep my work')),
+                      TextButton(onPressed: () => s.resolveConflict(i, useOffice: false), child: Text(tr('Keep my work'))),
                       if (!(s.jobs.where((j) => j.id == c.change.jobId).firstOrNull?.done ?? true))
                         TextButton(
                           onPressed: () => s.resolveConflict(i, useOffice: true),
-                          child: Text(c.change.kind == OfficeChangeKind.cancel ? 'Stop and cancel the job' : 'Use the office time'),
+                          child: Text(c.change.kind == OfficeChangeKind.cancel ? tr('Stop and cancel the job') : tr('Use the office time')),
                         ),
                     ],
                   ),
@@ -433,15 +434,15 @@ class SyncInbox extends StatelessWidget {
                       Icon(LucideIcons.inbox, size: 15, color: t.accent),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: Semantics(header: true, child: Text('From the office', style: tt.titleSmall)),
+                        child: Semantics(header: true, child: Text(tr('From the office'), style: tt.titleSmall)),
                       ),
-                      TextButton(onPressed: s.dismissSyncNotes, child: const Text('Dismiss')),
+                      TextButton(onPressed: s.dismissSyncNotes, child: Text(tr('Dismiss'))),
                     ],
                   ),
                   for (final n in s.syncNotes)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
-                      child: Text(n, style: tt.bodyMedium),
+                      child: Text(tr(n), style: tt.bodyMedium),
                     ),
                 ],
               ),

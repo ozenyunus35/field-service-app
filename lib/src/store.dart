@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'format.dart';
+import 'i18n.dart';
 import 'models.dart';
 import 'seed.dart';
 
@@ -59,11 +61,15 @@ class AppStore extends ChangeNotifier {
   bool syncInterrupted = false;
   ThemeMode themeMode = ThemeMode.system;
 
+  /// 'en' or 'tr'. A ?lang= link wins, then the saved choice, then the device language.
+  String lang = 'en';
+
   DateTime now() => _clock();
   String get today => dateKey(now());
   int get nowMinutes => now().hour * 60 + now().minute;
 
   void _load() {
+    _setLangFrom(null);
     final raw = _prefs.getString(_key);
     if (raw != null) {
       try {
@@ -85,9 +91,11 @@ class AppStore extends ChangeNotifier {
           syncNotes = [for (final n in j['syncNotes'] ?? []) n as String];
           lastSync = j['lastSync'] == null ? null : DateTime.parse(j['lastSync']);
           themeMode = ThemeMode.values.byName(j['theme'] ?? 'system');
+          _setLangFrom(j['lang']);
           return;
         }
         themeMode = ThemeMode.values.byName(j['theme'] ?? 'system');
+        _setLangFrom(j['lang']);
       } catch (_) {
         // Corrupt or old data: fall through and re-seed.
       }
@@ -137,6 +145,7 @@ class AppStore extends ChangeNotifier {
         'syncNotes': syncNotes,
         'lastSync': lastSync?.toIso8601String(),
         'theme': themeMode.name,
+        'lang': lang,
       }),
     );
   }
@@ -781,6 +790,24 @@ class AppStore extends ChangeNotifier {
   }
 
   // Settings
+
+  void _setLangFrom(Object? saved) {
+    final link = Uri.base.queryParameters['lang'];
+    final device = PlatformDispatcher.instance.locale.languageCode;
+    lang = link == 'tr' || link == 'en'
+        ? link!
+        : saved == 'tr' || saved == 'en'
+        ? saved as String
+        : (device == 'tr' ? 'tr' : 'en');
+    appLang = lang;
+  }
+
+  void setLang(String l) {
+    lang = l;
+    appLang = l;
+    _save();
+    notifyListeners();
+  }
 
   void setTheme(ThemeMode m) {
     themeMode = m;

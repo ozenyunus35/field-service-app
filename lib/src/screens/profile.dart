@@ -8,6 +8,7 @@ import '../seed.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../ui.dart';
+import '../i18n.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -25,7 +26,7 @@ class ProfileScreen extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
         children: [
-          Semantics(header: true, child: Text('Profile', style: tt.headlineSmall)),
+          Semantics(header: true, child: Text(tr('Profile'), style: tt.headlineSmall)),
           const SizedBox(height: 14),
           Panel(
             child: Row(
@@ -37,7 +38,7 @@ class ProfileScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(s.tech.name, style: tt.titleMedium),
-                      Text(s.tech.role, style: tt.bodySmall),
+                      Text(tr(s.tech.role), style: tt.bodySmall),
                       Text('$company · ${s.tech.van}', style: tt.bodySmall),
                     ],
                   ),
@@ -49,7 +50,7 @@ class ProfileScreen extends StatelessWidget {
 
           const _Today(),
 
-          const SectionHeader('Last 7 days'),
+          SectionHeader(tr('Last 7 days')),
           Panel(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,18 +58,18 @@ class ProfileScreen extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Metric(label: 'Jobs', value: '${w.jobs}'),
+                      child: Metric(label: tr('Jobs'), value: '${w.jobs}'),
                     ),
                     Expanded(
-                      child: Metric(label: 'On site', value: '${(w.minutes / 60).round()} h'),
+                      child: Metric(label: tr('On site'), value: tr('{n} h', {'n': (w.minutes / 60).round()})),
                     ),
                     Expanded(
-                      child: Metric(label: 'Invoiced', value: money(w.revenue, cents: false)),
+                      child: Metric(label: tr('Invoiced'), value: money(w.revenue, cents: false)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text('First-time fix ${(w.firstTimeFix * 100).round()}%', style: tt.bodySmall),
+                Text(tr('First-time fix ${(w.firstTimeFix * 100).round()}%'), style: tt.bodySmall),
                 const SizedBox(height: 14),
                 SizedBox(
                   height: 120,
@@ -78,7 +79,7 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
 
-          const SectionHeader('Sync'),
+          SectionHeader(tr('Sync')),
           Panel(
             padding: EdgeInsets.zero,
             child: Column(
@@ -86,8 +87,8 @@ class ProfileScreen extends StatelessWidget {
                 SwitchListTile(
                   value: s.offline,
                   onChanged: s.syncing ? null : s.setOffline,
-                  title: const Text('Work offline', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                  subtitle: Text('Pretend there is no signal. Changes wait on the phone until you go online.', style: tt.bodySmall),
+                  title: Text(tr('Work offline'), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                  subtitle: Text(tr('Pretend there is no signal. Changes wait on the phone until you go online.'), style: tt.bodySmall),
                   secondary: Icon(s.offline ? LucideIcons.wifiOff : LucideIcons.wifi, size: 18, color: t.muted),
                 ),
                 Divider(height: 1, color: t.border),
@@ -95,9 +96,13 @@ class ProfileScreen extends StatelessWidget {
                   container: true,
                   child: ListTile(
                     leading: Icon(LucideIcons.building2, size: 18, color: t.muted),
-                    title: const Text('Office changes', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    title: Text(tr('Office changes'), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                     subtitle: Text(
-                      s.officeQueue.isNotEmpty ? '${plural(s.officeQueue.length, 'change')} from the office waiting for the next sync.' : 'While offline, let the office cancel your current job, move the next one and add an urgent call. Go online to sync and see how clashes are handled.',
+                      s.officeQueue.isNotEmpty
+                          ? tr('${plural(s.officeQueue.length, 'change')} from the office waiting for the next sync.')
+                          : tr(
+                              'While offline, let the office cancel your current job, move the next one and add an urgent call. Go online to sync and see how clashes are handled.',
+                            ),
                       style: tt.bodySmall,
                     ),
                     trailing: s.offline && s.officeQueue.isEmpty
@@ -106,7 +111,7 @@ class ProfileScreen extends StatelessWidget {
                               final err = s.simulateOfficeChanges();
                               toast(context, err ?? 'The office changed your day. Go online to sync.');
                             },
-                            child: const Text('Simulate'),
+                            child: Text(tr('Simulate')),
                           )
                         : null,
                   ),
@@ -123,12 +128,12 @@ class ProfileScreen extends StatelessWidget {
                             color: s.pending.isEmpty ? t.success : t.warning,
                           ),
                     title: Text(
-                      s.syncing ? 'Syncing…' : (s.pending.isEmpty ? 'Everything is synced' : '${plural(s.pending.length, 'change')} waiting'),
+                      s.syncing ? tr('Syncing…') : (s.pending.isEmpty ? tr('Everything is synced') : tr('${plural(s.pending.length, 'change')} waiting')),
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                     ),
-                    subtitle: Text(s.lastSync == null ? 'Not synced yet' : 'Last synced ${ago(s.lastSync!, s.now())}', style: tt.bodySmall),
+                    subtitle: Text(s.lastSync == null ? tr('Not synced yet') : tr('Last synced ${ago(s.lastSync!, s.now())}'), style: tt.bodySmall),
                     trailing: !s.offline && (s.pending.isNotEmpty || s.officeQueue.isNotEmpty) && !s.syncing
-                        ? TextButton(onPressed: s.sync, child: const Text('Sync now'))
+                        ? TextButton(onPressed: s.sync, child: Text(tr('Sync now')))
                         : null,
                   ),
                 ),
@@ -147,13 +152,13 @@ class ProfileScreen extends StatelessWidget {
                                 Icon(LucideIcons.circleDashed, size: 12, color: t.faint),
                                 const SizedBox(width: 8),
                                 Expanded(
-                                  child: Text(p.label, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5)),
+                                  child: Text(tr(p.label), overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5)),
                                 ),
                                 Text(clockOf(p.at), style: TextStyle(fontSize: 11.5, color: t.faint)),
                               ],
                             ),
                           ),
-                        if (s.pending.length > 6) Text('and ${s.pending.length - 6} more', style: tt.bodySmall),
+                        if (s.pending.length > 6) Text(tr('and ${s.pending.length - 6} more'), style: tt.bodySmall),
                       ],
                     ),
                   ),
@@ -162,35 +167,50 @@ class ProfileScreen extends StatelessWidget {
             ),
           ),
 
-          const SectionHeader('Appearance'),
+          SectionHeader(tr('Appearance')),
           SizedBox(
             width: double.infinity,
             child: SegmentedButton<ThemeMode>(
               showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(value: ThemeMode.system, label: Text('System'), icon: Icon(LucideIcons.smartphone, size: 15)),
-                ButtonSegment(value: ThemeMode.light, label: Text('Light'), icon: Icon(LucideIcons.sun, size: 15)),
-                ButtonSegment(value: ThemeMode.dark, label: Text('Dark'), icon: Icon(LucideIcons.moon, size: 15)),
+              segments: [
+                ButtonSegment(value: ThemeMode.system, label: Text(tr('System')), icon: Icon(LucideIcons.smartphone, size: 15)),
+                ButtonSegment(value: ThemeMode.light, label: Text(tr('Light')), icon: Icon(LucideIcons.sun, size: 15)),
+                ButtonSegment(value: ThemeMode.dark, label: Text(tr('Dark')), icon: Icon(LucideIcons.moon, size: 15)),
               ],
               selected: {s.themeMode},
               onSelectionChanged: (v) => s.setTheme(v.first),
             ),
           ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<String>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: 'en', label: Text('English'), icon: Icon(LucideIcons.languages, size: 15)),
+                ButtonSegment(value: 'tr', label: Text('Türkçe'), icon: Icon(LucideIcons.languages, size: 15)),
+              ],
+              selected: {s.lang},
+              onSelectionChanged: (v) => s.setLang(v.first),
+            ),
+          ),
 
-          const SectionHeader('Demo'),
+          SectionHeader(tr('Demo')),
           Panel(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$company, its customers and jobs are synthetic (phone numbers are 555-01xx). Everything is stored on this device and starts fresh each day.',
+                  tr(
+                    '$company, its customers and jobs are synthetic (phone numbers are 555-01xx). Everything is stored on this device and starts fresh each day.',
+                  ),
                   style: tt.bodySmall,
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: () => _confirmReset(context, s),
                   icon: Icon(LucideIcons.rotateCcw, size: 15, color: t.danger),
-                  label: Text('Reset demo data', style: TextStyle(color: t.danger)),
+                  label: Text(tr('Reset demo data'), style: TextStyle(color: t.danger)),
                 ),
               ],
             ),
@@ -204,11 +224,11 @@ class ProfileScreen extends StatelessWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Reset demo data?'),
-        content: const Text('Your changes to jobs, stock and settings are removed and today\'s demo route is restored.'),
+        title: Text(tr('Reset demo data?')),
+        content: Text(tr('Your changes to jobs, stock and settings are removed and today\'s demo route is restored.')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Reset')),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(tr('Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(tr('Reset'))),
         ],
       ),
     );
@@ -285,7 +305,7 @@ class _Today extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(
-          'Today\'s hours',
+          tr('Today\'s hours'),
           trailing: TextButton.icon(
             onPressed: () {
               if (onBreak != null) {
@@ -297,7 +317,7 @@ class _Today extends StatelessWidget {
               }
             },
             icon: Icon(onBreak != null ? LucideIcons.play : LucideIcons.coffee, size: 15),
-            label: Text(onBreak != null ? 'End break' : 'Start break'),
+            label: Text(onBreak != null ? tr('End break') : tr('Start break')),
             style: TextButton.styleFrom(minimumSize: const Size(0, 30), padding: const EdgeInsets.symmetric(horizontal: 8)),
           ),
         ),
@@ -309,49 +329,49 @@ class _Today extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Metric(
-                      label: 'Worked',
+                      label: tr('Worked'),
                       value: duration(sheet.worked),
-                      sub: sheet.clockIn == null ? 'Not started' : 'Since ${clockOf(sheet.clockIn!)}',
+                      sub: sheet.clockIn == null ? tr('Not started') : tr('Since ${clockOf(sheet.clockIn!)}'),
                     ),
                   ),
                   Expanded(
-                    child: Metric(label: 'Driving', value: duration(sheet.travel)),
+                    child: Metric(label: tr('Driving'), value: duration(sheet.travel)),
                   ),
                   Expanded(
-                    child: Metric(label: 'On site', value: duration(sheet.onSite)),
+                    child: Metric(label: tr('On site'), value: duration(sheet.onSite)),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
               Text(
                 [
-                  'Breaks ${duration(sheet.breaks)}',
-                  if (onBreak != null) 'on a break since ${clockOf(onBreak.start)}',
-                  if (sheet.overtime > 0) 'overtime ${duration(sheet.overtime)}' else 'overtime starts after 8 h',
+                  tr('Breaks ${duration(sheet.breaks)}'),
+                  if (onBreak != null) tr('on a break since ${clockOf(onBreak.start)}'),
+                  if (sheet.overtime > 0) tr('overtime ${duration(sheet.overtime)}') else tr('overtime starts after 8 h'),
                 ].join(' · '),
                 style: tt.bodySmall?.copyWith(color: sheet.overtime > 0 ? t.warning : null),
               ),
             ],
           ),
         ),
-        const SectionHeader('Taken today'),
+        SectionHeader(tr('Taken today')),
         Panel(
           child: Row(
             children: [
               Expanded(
-                child: Metric(label: 'Card', value: money(money0.card, cents: false)),
+                child: Metric(label: tr('Card'), value: money(money0.card, cents: false)),
               ),
               Expanded(
-                child: Metric(label: 'Cash', value: money(money0.cash, cents: false)),
+                child: Metric(label: tr('Cash'), value: money(money0.cash, cents: false)),
               ),
               Expanded(
-                child: Metric(label: 'To invoice', value: money(money0.invoice, cents: false)),
+                child: Metric(label: tr('To invoice'), value: money(money0.invoice, cents: false)),
               ),
             ],
           ),
         ),
         if (texts.isNotEmpty) ...[
-          const SectionHeader('Texts to customers'),
+          SectionHeader(tr('Texts to customers')),
           Panel(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

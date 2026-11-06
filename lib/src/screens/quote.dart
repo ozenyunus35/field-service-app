@@ -7,6 +7,7 @@ import '../store.dart';
 import '../theme.dart';
 import '../ui.dart';
 import 'signature.dart';
+import '../i18n.dart';
 
 /// Ready-made quotes per trade, so a quote on site takes a few taps. Everything stays editable.
 const quoteTemplates = <Trade, List<(String, int, List<(String, double)>)>>{
@@ -140,13 +141,13 @@ class _QuoteScreenState extends State<QuoteScreen> {
     ];
 
     return Scaffold(
-      appBar: AppBar(title: Text(saved?.ref ?? 'New quote')),
+      appBar: AppBar(title: Text(saved?.ref ?? tr('New quote'))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
           Text('${s.customer(j.customerId).name} · ${j.ref}', style: tt.bodySmall),
           if (editable) ...[
-            const SectionHeader('Start from'),
+            SectionHeader(tr('Start from')),
             Wrap(
               spacing: 6,
               runSpacing: 6,
@@ -163,13 +164,13 @@ class _QuoteScreenState extends State<QuoteScreen> {
               controller: title,
               maxLength: 80,
               onChanged: (_) => setState(() {}),
-              decoration: const InputDecoration(labelText: 'Work to quote', counterText: ''),
+              decoration: InputDecoration(labelText: tr('Work to quote'), counterText: ''),
             ),
           ] else ...[
             const SizedBox(height: 8),
             Semantics(header: true, child: Text(saved!.title, style: tt.titleLarge)),
           ],
-          const SectionHeader('Items'),
+          SectionHeader(tr('Items')),
           Panel(
             padding: EdgeInsets.zero,
             child: Column(
@@ -177,7 +178,7 @@ class _QuoteScreenState extends State<QuoteScreen> {
                 if (items.isEmpty)
                   Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Text('Pick a starting point above, or add items below.', style: tt.bodySmall),
+                    child: Text(tr('Pick a starting point above, or add items below.'), style: tt.bodySmall),
                   ),
                 for (final (i, item) in items.indexed) ...[
                   if (i > 0) Divider(height: 1, color: t.border),
@@ -196,12 +197,12 @@ class _QuoteScreenState extends State<QuoteScreen> {
                         ),
                         if (editable) ...[
                           IconButton(
-                            tooltip: 'One less ${item.label}',
+                            tooltip: tr('One less ${item.label}'),
                             onPressed: () => setState(() => item.qty > 1 ? item.qty-- : items.removeAt(i)),
                             icon: Icon(item.qty > 1 ? LucideIcons.minus : LucideIcons.trash2, size: 15),
                           ),
                           IconButton(
-                            tooltip: 'One more ${item.label}',
+                            tooltip: tr('One more ${item.label}'),
                             onPressed: () => setState(() => item.qty++),
                             icon: const Icon(LucideIcons.plus, size: 15),
                           ),
@@ -221,7 +222,7 @@ class _QuoteScreenState extends State<QuoteScreen> {
                           child: TextField(
                             controller: label,
                             maxLength: 60,
-                            decoration: const InputDecoration(labelText: 'Item', counterText: ''),
+                            decoration: InputDecoration(labelText: tr('Item'), counterText: ''),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -230,10 +231,10 @@ class _QuoteScreenState extends State<QuoteScreen> {
                           child: TextField(
                             controller: price,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(labelText: 'Price', prefixText: '\$'),
+                            decoration: InputDecoration(labelText: tr('Price'), prefixText: '\$'),
                           ),
                         ),
-                        IconButton(tooltip: 'Add item', onPressed: _addItem, icon: const Icon(LucideIcons.plus, size: 17)),
+                        IconButton(tooltip: tr('Add item'), onPressed: _addItem, icon: const Icon(LucideIcons.plus, size: 17)),
                       ],
                     ),
                   ),
@@ -241,20 +242,20 @@ class _QuoteScreenState extends State<QuoteScreen> {
               ],
             ),
           ),
-          const SectionHeader('Labour'),
+          SectionHeader(tr('Labour')),
           Panel(
             child: Row(
               children: [
                 Expanded(child: Text('${duration(AppStore.billable(minutes))} at ${money(s.tech.hourlyRate, cents: false)}/h', style: tt.titleSmall)),
                 if (editable) ...[
                   IconButton.outlined(
-                    tooltip: 'Less labour',
+                    tooltip: tr('Less labour'),
                     onPressed: minutes > 30 ? () => setState(() => minutes -= 30) : null,
                     icon: const Icon(LucideIcons.minus, size: 15),
                   ),
                   const SizedBox(width: 6),
                   IconButton.outlined(
-                    tooltip: 'More labour',
+                    tooltip: tr('More labour'),
                     onPressed: minutes < 600 ? () => setState(() => minutes += 30) : null,
                     icon: const Icon(LucideIcons.plus, size: 15),
                   ),
@@ -262,28 +263,28 @@ class _QuoteScreenState extends State<QuoteScreen> {
               ],
             ),
           ),
-          const SectionHeader('Total'),
+          SectionHeader(tr('Total')),
           Panel(
             child: Column(
               children: [
-                KeyValue('Items', money(total.items)),
-                KeyValue('Labour', money(total.labour)),
-                KeyValue('Tax on items', money(total.tax)),
+                KeyValue(tr('Items'), money(total.items)),
+                KeyValue(tr('Labour'), money(total.labour)),
+                KeyValue(tr('Tax on items'), money(total.tax)),
                 Divider(color: t.border, height: 16),
-                KeyValue('Total', money(total.total), strong: true),
+                KeyValue(tr('Total'), money(total.total), strong: true),
               ],
             ),
           ),
-          const SectionHeader('Customer acceptance'),
+          SectionHeader(tr('Customer acceptance')),
           SignaturePad(onChanged: (v) => setState(() => signature = v)),
           const SizedBox(height: 10),
           TextField(
             controller: name,
             maxLength: AppStore.maxSignedBy,
-            decoration: const InputDecoration(labelText: 'Accepted by', counterText: ''),
+            decoration: InputDecoration(labelText: tr('Accepted by'), counterText: ''),
           ),
           const SizedBox(height: 6),
-          Text('By signing, the customer accepts the quote. The work is booked on the first day with room.', style: tt.bodySmall),
+          Text(tr('By signing, the customer accepts the quote. The work is booked on the first day with room.'), style: tt.bodySmall),
         ],
       ),
       bottomNavigationBar: SafeArea(
@@ -295,13 +296,13 @@ class _QuoteScreenState extends State<QuoteScreen> {
           ),
           child: Row(
             children: [
-              TextButton(onPressed: _decline, child: const Text('Declined')),
-              if (editable) TextButton(onPressed: _later, child: const Text('Save')),
+              TextButton(onPressed: _decline, child: Text(tr('Declined'))),
+              if (editable) TextButton(onPressed: _later, child: Text(tr('Save'))),
               const Spacer(),
               FilledButton.icon(
                 onPressed: AppStore.signatureOk(signature) && items.isNotEmpty ? _accept : null,
                 icon: const Icon(LucideIcons.signature, size: 16),
-                label: Text('Accept ${money(total.total, cents: false)}'),
+                label: Text(tr('Accept ${money(total.total, cents: false)}')),
               ),
             ],
           ),

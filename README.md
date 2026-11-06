@@ -63,6 +63,9 @@ in a phone frame)
 - **Site safety check:** gas appliances need three safety checks confirmed before a job can be signed off.
 - **Schedule:** two weeks of days with job counts; **Profile:** last 7 days (jobs, hours, invoiced, first-time fix
   rate) with a chart, sync status, light / dark / system theme.
+- English and Turkish: every screen, status, toast and sync message, with 24-hour times, Turkish dates and amounts in
+  Turkish. Switch in Profile, or open a link with `?lang=tr`. Job content from the office (titles, checklists, customers)
+  stays as written.
 - Accessible: semantic labels for every control, so screen readers (and the browser tests) can use the app.
 
 | Today | Job | Sign-off |

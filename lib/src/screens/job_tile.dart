@@ -7,6 +7,7 @@ import '../store.dart';
 import '../theme.dart';
 import '../ui.dart';
 import 'job_detail.dart';
+import '../i18n.dart';
 
 void openJob(BuildContext context, Job j) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => JobDetailScreen(jobId: j.id)));
 
@@ -55,7 +56,8 @@ class TimelineJob extends StatelessWidget {
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
-                      Text(time[1], style: TextStyle(fontSize: 10.5, color: t.faint)),
+                      // 24-hour Turkish times have no AM/PM line.
+                      if (time.length > 1) Text(time[1], style: TextStyle(fontSize: 10.5, color: t.faint)),
                     ],
                   ),
                 ),
@@ -114,7 +116,7 @@ class TimelineJob extends StatelessWidget {
                                       style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: job.done ? t.muted : t.text, letterSpacing: -0.15),
                                     ),
                                   ),
-                                  if (job.urgent && !job.done) ...[const SizedBox(width: 6), Tag('Urgent', color: t.danger)],
+                                  if (job.urgent && !job.done) ...[const SizedBox(width: 6), Tag(tr('Urgent'), color: t.danger)],
                                 ],
                               ),
                               const SizedBox(height: 2),
@@ -133,7 +135,7 @@ class TimelineJob extends StatelessWidget {
                                   // Open stops show when you'll get there; the others how long they take.
                                   Flexible(
                                     child: Text(
-                                      eta != null ? 'ETA ${clock(eta)}' : duration(job.duration),
+                                      eta != null ? tr('ETA ${clock(eta)}') : duration(job.duration),
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(fontSize: 11.5, fontWeight: late ? FontWeight.w600 : FontWeight.w400, color: late ? t.danger : t.faint),
                                     ),

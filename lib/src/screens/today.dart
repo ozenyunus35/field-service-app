@@ -9,6 +9,7 @@ import '../theme.dart';
 import '../ui.dart';
 import 'job_detail.dart';
 import 'job_tile.dart';
+import '../i18n.dart';
 
 class TodayScreen extends StatelessWidget {
   const TodayScreen({super.key, required this.onOpenProfile});
@@ -41,13 +42,13 @@ class TodayScreen extends StatelessWidget {
                       children: [
                         Text(dayLong(s.today), style: tt.bodySmall),
                         const SizedBox(height: 2),
-                        Semantics(header: true, child: Text('Today', style: tt.headlineSmall)),
+                        Semantics(header: true, child: Text(tr('Today'), style: tt.headlineSmall)),
                       ],
                     ),
                   ),
                   Semantics(
                     button: true,
-                    label: 'Profile, ${s.tech.name}',
+                    label: tr('Profile, ${s.tech.name}'),
                     excludeSemantics: true,
                     child: InkWell(customBorder: const CircleBorder(), onTap: onOpenProfile, child: Avatar(s.tech.name, size: 38)),
                   ),
@@ -69,13 +70,13 @@ class TodayScreen extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Metric(label: 'Jobs done', value: '${done.length} of ${live.length}'),
+                          child: Metric(label: tr('Jobs done'), value: tr('${done.length} of ${live.length}')),
                         ),
                         Expanded(
-                          child: Metric(label: 'Booked', value: duration(booked)),
+                          child: Metric(label: tr('Booked'), value: duration(booked)),
                         ),
                         Expanded(
-                          child: Metric(label: 'Invoiced', value: money(invoiced, cents: false)),
+                          child: Metric(label: tr('Invoiced'), value: money(invoiced, cents: false)),
                         ),
                       ],
                     ),
@@ -93,7 +94,7 @@ class TodayScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SectionHeader(current.active ? 'In progress' : 'Up next'),
+                    SectionHeader(current.active ? tr('In progress') : tr('Up next')),
                     _NextJob(job: current),
                   ],
                 ),
@@ -109,9 +110,9 @@ class TodayScreen extends StatelessWidget {
                     children: [
                       Icon(LucideIcons.circleCheckBig, size: 26, color: t.success),
                       const SizedBox(height: 10),
-                      Text('All jobs done for today', style: tt.titleMedium),
+                      Text(tr('All jobs done for today'), style: tt.titleMedium),
                       const SizedBox(height: 4),
-                      Text('${plural(done.length, 'job')} completed, ${money(invoiced)} invoiced.', style: tt.bodySmall, textAlign: TextAlign.center),
+                      Text(tr('${plural(done.length, 'job')} completed, ${money(invoiced)} invoiced.'), style: tt.bodySmall, textAlign: TextAlign.center),
                     ],
                   ),
                 ),
@@ -120,7 +121,7 @@ class TodayScreen extends StatelessWidget {
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             sliver: SliverToBoxAdapter(
-              child: SectionHeader('Route', trailing: Text(plural(jobs.length, 'stop'), style: tt.bodySmall)),
+              child: SectionHeader(tr('Route'), trailing: Text(plural(jobs.length, 'stop'), style: tt.bodySmall)),
             ),
           ),
           SliverPadding(
@@ -211,7 +212,7 @@ class _NextJob extends StatelessWidget {
                                 Flexible(
                                   child: Text(job.title, style: tt.titleMedium, overflow: TextOverflow.ellipsis),
                                 ),
-                                if (job.urgent) ...[const SizedBox(width: 6), Tag('Urgent', color: t.danger)],
+                                if (job.urgent) ...[const SizedBox(width: 6), Tag(tr('Urgent'), color: t.danger)],
                               ],
                             ),
                             const SizedBox(height: 2),
@@ -232,9 +233,13 @@ class _NextJob extends StatelessWidget {
                   const SizedBox(height: 12),
                   _Fact(LucideIcons.mapPin, c.address),
                   const SizedBox(height: 6),
-                  _Fact(LucideIcons.clock3, 'Arrive ${window(job.start, job.windowEnd)}', trailing: late ? Tag('Running late', color: t.warning) : null),
+                  _Fact(
+                    LucideIcons.clock3,
+                    tr('Arrive ${window(job.start, job.windowEnd)}'),
+                    trailing: late ? Tag(tr('Running late'), color: t.warning) : null,
+                  ),
                   const SizedBox(height: 6),
-                  _Fact(LucideIcons.car, '${job.drive} min drive · ${duration(job.duration)} on site'),
+                  _Fact(LucideIcons.car, tr('${job.drive} min drive · ${duration(job.duration)} on site')),
                 ],
               ),
             ),
@@ -246,11 +251,11 @@ class _NextJob extends StatelessWidget {
               children: [
                 _IconAction(
                   icon: LucideIcons.navigation,
-                  label: 'Directions to ${c.name}',
+                  label: tr('Directions to ${c.name}'),
                   onTap: () => toast(context, 'On a phone this opens Maps with directions to ${c.street}.'),
                 ),
                 const SizedBox(width: 8),
-                _IconAction(icon: LucideIcons.phone, label: 'Call ${c.name}', onTap: () => toast(context, 'On a phone this calls ${c.phone}.')),
+                _IconAction(icon: LucideIcons.phone, label: tr('Call ${c.name}'), onTap: () => toast(context, 'On a phone this calls ${c.phone}.')),
                 const SizedBox(width: 8),
                 Expanded(
                   child: FilledButton.icon(onPressed: action.onPressed, icon: Icon(action.icon, size: 16), label: Text(action.label)),
@@ -337,7 +342,7 @@ class _RunningLate extends StatelessWidget {
                 Icon(LucideIcons.clockAlert, size: 15, color: t.danger),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Semantics(header: true, child: Text('Running late', style: tt.titleSmall)),
+                  child: Semantics(header: true, child: Text(tr('Running late'), style: tt.titleSmall)),
                 ),
               ],
             ),
@@ -346,7 +351,7 @@ class _RunningLate extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 3),
                 child: Text(
-                  '${s.customer(j.customerId).name}: arriving around ${clock(AppStore.roundEta(eta[j.id]!))}, window ${window(j.start, j.windowEnd)}',
+                  tr('${s.customer(j.customerId).name}: arriving around ${clock(AppStore.roundEta(eta[j.id]!))}, window ${window(j.start, j.windowEnd)}'),
                   style: tt.bodyMedium,
                 ),
               ),
@@ -359,7 +364,7 @@ class _RunningLate extends StatelessWidget {
                   toast(context, '${plural(n, 'customer')} texted with the new arrival time.');
                 },
                 icon: const Icon(LucideIcons.messageSquareText, size: 16),
-                label: Text(late.length == 1 ? 'Text the customer' : 'Text ${late.length} customers'),
+                label: Text(late.length == 1 ? tr('Text the customer') : tr('Text ${late.length} customers')),
               ),
             ),
           ],

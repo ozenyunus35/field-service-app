@@ -6,6 +6,7 @@ import '../models.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../ui.dart';
+import '../i18n.dart';
 
 class StockScreen extends StatefulWidget {
   const StockScreen({super.key});
@@ -40,7 +41,7 @@ class _StockScreenState extends State<StockScreen> {
                 children: [
                   Text(s.tech.van, style: tt.bodySmall),
                   const SizedBox(height: 2),
-                  Semantics(header: true, child: Text('Van stock', style: tt.headlineSmall)),
+                  Semantics(header: true, child: Text(tr('Van stock'), style: tt.headlineSmall)),
                 ],
               ),
             ),
@@ -55,13 +56,13 @@ class _StockScreenState extends State<StockScreen> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Metric(label: 'Items', value: '${s.parts.fold<int>(0, (sum, p) => sum + p.qty)}', sub: plural(s.parts.length, 'part')),
+                      child: Metric(label: tr('Items'), value: '${s.parts.fold<int>(0, (sum, p) => sum + p.qty)}', sub: plural(s.parts.length, 'part')),
                     ),
                     Expanded(
-                      child: Metric(label: 'Running low', value: '${low.length}', sub: '${low.where((p) => p.restockRequested).length} requested'),
+                      child: Metric(label: tr('Running low'), value: '${low.length}', sub: tr('${low.where((p) => p.restockRequested).length} requested')),
                     ),
                     Expanded(
-                      child: Metric(label: 'Stock value', value: money(value, cents: false)),
+                      child: Metric(label: tr('Stock value'), value: money(value, cents: false)),
                     ),
                   ],
                 ),
@@ -76,12 +77,12 @@ class _StockScreenState extends State<StockScreen> {
                   Expanded(
                     child: TextField(
                       onChanged: (v) => setState(() => q = v.trim().toLowerCase()),
-                      decoration: const InputDecoration(prefixIcon: Icon(LucideIcons.search, size: 16), hintText: 'Search parts or SKU'),
+                      decoration: InputDecoration(prefixIcon: Icon(LucideIcons.search, size: 16), hintText: tr('Search parts or SKU')),
                     ),
                   ),
                   const SizedBox(width: 8),
                   FilterChip(
-                    label: const Text('Low only'),
+                    label: Text(tr('Low only')),
                     selected: lowOnly,
                     onSelected: (v) => setState(() => lowOnly = v),
                     showCheckmark: false,
@@ -98,7 +99,7 @@ class _StockScreenState extends State<StockScreen> {
           if (list.isEmpty)
             SliverFillRemaining(
               hasScrollBody: false,
-              child: Center(child: Text(lowOnly ? 'Nothing is running low.' : 'No parts match "$q".', style: tt.bodySmall)),
+              child: Center(child: Text(lowOnly ? tr('Nothing is running low.') : tr('No parts match "$q".'), style: tt.bodySmall)),
             )
           else
             SliverPadding(
@@ -148,11 +149,11 @@ class _PartRow extends StatelessWidget {
                         style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500),
                       ),
                     ),
-                    if (p.low) ...[const SizedBox(width: 6), Tag(p.qty == 0 ? 'Out' : 'Low', color: p.qty == 0 ? t.danger : t.warning)],
+                    if (p.low) ...[const SizedBox(width: 6), Tag(p.qty == 0 ? tr('Out') : tr('Low'), color: p.qty == 0 ? t.danger : t.warning)],
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text('${p.sku} · ${money(p.price)} · min ${p.min}', style: TextStyle(fontSize: 12, color: t.muted)),
+                Text(tr('${p.sku} · ${money(p.price)} · min ${p.min}'), style: TextStyle(fontSize: 12, color: t.muted)),
                 const SizedBox(height: 7),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(2),
@@ -191,9 +192,9 @@ class _PartRow extends StatelessWidget {
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         child: Semantics(
-                          label: 'Requested. Mark the restock of ${p.name} as received',
+                          label: tr('Requested. Mark the restock of ${p.name} as received'),
                           excludeSemantics: true,
-                          child: Text('Received?', style: TextStyle(fontSize: 12.5, color: t.success)),
+                          child: Text(tr('Received?'), style: TextStyle(fontSize: 12.5, color: t.success)),
                         ),
                       )
                     : TextButton(
@@ -207,13 +208,13 @@ class _PartRow extends StatelessWidget {
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         ),
                         child: Semantics(
-                          label: 'Request restock of ${p.name}',
+                          label: tr('Request restock of ${p.name}'),
                           excludeSemantics: true,
-                          child: const Text('Restock', style: TextStyle(fontSize: 12.5)),
+                          child: Text(tr('Restock'), style: TextStyle(fontSize: 12.5)),
                         ),
                       )
               else
-                Text('in van', style: TextStyle(fontSize: 11.5, color: t.faint)),
+                Text(tr('in van'), style: TextStyle(fontSize: 11.5, color: t.faint)),
             ],
           ),
         ],

@@ -1,4 +1,6 @@
 import 'package:fieldline/src/app.dart';
+import 'package:fieldline/src/i18n.dart';
+import 'package:fieldline/src/tr.dart';
 import 'package:fieldline/src/models.dart';
 import 'package:fieldline/src/screens/job_detail.dart';
 import 'package:fieldline/src/screens/signature.dart';
@@ -335,5 +337,62 @@ void main() {
     expect(find.text('Job completed'), findsOneWidget);
     expect(find.text('Paid in cash'), findsOneWidget);
     expect(job.payment!.change, greaterThan(0));
+  });
+
+  testWidgets('the whole day works in Turkish', (tester) async {
+    final s = await pumpApp(tester);
+    trMisses.clear();
+    s.setLang('tr');
+    await tester.pumpAndSettle();
+    expect(find.text('Rota'), findsOneWidget);
+    final job = s.current!;
+
+    // A job, worked end to end.
+    await tester.tap(find.text(job.description));
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Yola çık');
+    await tapText(tester, 'Adrese vardım');
+    for (final label in AppStore.safetyChecks) {
+      await tapText(tester, trText[label]!);
+    }
+    await tapText(tester, 'Güvenlik kontrolünü onayla');
+    for (final c in job.checklist.where((c) => c.required)) {
+      await tapText(tester, c.label);
+    }
+    await tapText(tester, 'Parça ekle');
+    await tester.tap(find.text('Hot surface igniter'));
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Fotoğraf ekle');
+    await tapText(tester, 'İşi tamamla');
+    expect(find.text('Müşteri imzası eksik'), findsOneWidget);
+    await tapText(tester, 'Nakit');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    // The other tabs, offline mode and the office's changes.
+    for (final tab in ['Program', 'Araç stoğu', 'Profil']) {
+      await tester.tap(find.text(tab).last);
+      await tester.pumpAndSettle();
+    }
+    // Offline, the office's changes and a break, set through the store; their buttons are tested in English.
+    s.setOffline(true);
+    s.simulateOfficeChanges();
+    s.startBreak();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bugün').last);
+    await tester.pumpAndSettle();
+    await tester.fling(find.byType(CustomScrollView).first, const Offset(0, 800), 2000);
+    await tester.pumpAndSettle();
+    await tapText(tester, 'Çevrimiçi ol');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+
+    expect(trMisses, isEmpty);
+    s.setLang('en');
+    await tester.pumpAndSettle();
+    expect(find.text('Van stock'), findsOneWidget);
+    expect(find.text('Araç stoğu'), findsNothing);
   });
 }

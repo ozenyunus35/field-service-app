@@ -10,6 +10,7 @@ import 'screens/today.dart';
 import 'seed.dart';
 import 'store.dart';
 import 'theme.dart';
+import 'i18n.dart';
 
 const sourceUrl = 'https://github.com/ozenyunus35/field-service-app';
 
@@ -24,7 +25,7 @@ class FieldlineApp extends StatelessWidget {
       child: ListenableBuilder(
         listenable: store,
         builder: (context, _) => MaterialApp(
-          title: 'Fieldline',
+          title: tr('Fieldline'),
           debugShowCheckedModeBanner: false,
           theme: buildTheme(Brightness.light),
           darkTheme: buildTheme(Brightness.dark),
@@ -189,27 +190,29 @@ class _About extends StatelessWidget {
             children: [
               const FieldlineMark(size: 28),
               const SizedBox(width: 10),
-              Text('Fieldline', style: tt.titleMedium),
+              Text(tr('Fieldline'), style: tt.titleMedium),
               const SizedBox(width: 8),
-              Text('demo', style: tt.bodySmall),
+              Text(tr('demo'), style: tt.bodySmall),
             ],
           ),
           const SizedBox(height: 28),
           Text(
-            'Field service app',
+            tr('Field service app'),
             style: TextStyle(color: t.accent, fontWeight: FontWeight.w500, fontSize: 13),
           ),
           const SizedBox(height: 8),
-          Text('The technician\'s day, in one app.', style: tt.headlineSmall?.copyWith(fontSize: 30, letterSpacing: -0.9)),
+          Text(tr('The technician\'s day, in one app.'), style: tt.headlineSmall?.copyWith(fontSize: 30, letterSpacing: -0.9)),
           const SizedBox(height: 12),
           Text(
-            'Jobs for the day, the route, checklists, parts from the van, photos, the customer\'s signature and the invoice. Works offline and syncs when the signal is back.',
+            tr(
+              'Jobs for the day, the route, checklists, parts from the van, photos, the customer\'s signature and the invoice. Works offline and syncs when the signal is back.',
+            ),
             style: tt.bodyLarge?.copyWith(color: t.muted),
           ),
           const SizedBox(height: 24),
-          point(LucideIcons.smartphone, 'Built with Flutter. This is the web build; the same code runs on iOS and Android.'),
-          point(LucideIcons.wifiOff, 'Turn on "Work offline" in Profile, make changes, then go online to watch them sync.'),
-          point(LucideIcons.database, '$company and its customers are synthetic. Data stays in this browser and resets each day.'),
+          point(LucideIcons.smartphone, tr('Built with Flutter. This is the web build; the same code runs on iOS and Android.')),
+          point(LucideIcons.wifiOff, tr('Turn on "Work offline" in Profile, make changes, then go online to watch them sync.')),
+          point(LucideIcons.database, tr('$company and its customers are synthetic. Data stays in this browser and resets each day.')),
           const SizedBox(height: 18),
           Wrap(
             spacing: 8,
@@ -218,7 +221,7 @@ class _About extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: () => launchUrl(Uri.parse(sourceUrl), webOnlyWindowName: '_blank'),
                 icon: const Icon(LucideIcons.code, size: 15),
-                label: const Text('Source code'),
+                label: Text(tr('Source code')),
               ),
               OutlinedButton.icon(
                 onPressed: () {
@@ -226,7 +229,7 @@ class _About extends StatelessWidget {
                   toastAbout(context);
                 },
                 icon: const Icon(LucideIcons.rotateCcw, size: 15),
-                label: const Text('Reset demo'),
+                label: Text(tr('Reset demo')),
               ),
             ],
           ),
@@ -237,7 +240,7 @@ class _About extends StatelessWidget {
 
   void toastAbout(BuildContext context) {
     final m = ScaffoldMessenger.maybeOf(context);
-    m?.showSnackBar(const SnackBar(content: Text('Demo data was reset.')));
+    m?.showSnackBar(SnackBar(content: Text(tr('Demo data was reset.'))));
   }
 }
 
@@ -273,14 +276,18 @@ class _ShellState extends State<Shell> {
     final t = context.t;
     final low = s.lowStock.where((p) => !p.restockRequested).length;
     return Scaffold(
-      body: IndexedStack(
-        index: index,
-        children: [
-          TodayScreen(onOpenProfile: () => setState(() => index = 3)),
-          const ScheduleScreen(),
-          const StockScreen(),
-          const ProfileScreen(),
-        ],
+      // Keyed by language so every tab, const parts included, is rebuilt in the new language.
+      body: KeyedSubtree(
+        key: ValueKey(s.lang),
+        child: IndexedStack(
+          index: index,
+          children: [
+            TodayScreen(onOpenProfile: () => setState(() => index = 3)),
+            const ScheduleScreen(),
+            const StockScreen(),
+            const ProfileScreen(),
+          ],
+        ),
       ),
       bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(
@@ -290,13 +297,13 @@ class _ShellState extends State<Shell> {
           selectedIndex: index,
           onDestinationSelected: (i) => setState(() => index = i),
           destinations: [
-            const NavigationDestination(icon: Icon(LucideIcons.house), label: 'Today'),
-            const NavigationDestination(icon: Icon(LucideIcons.calendarDays), label: 'Schedule'),
+            NavigationDestination(icon: Icon(LucideIcons.house), label: tr('Today')),
+            NavigationDestination(icon: Icon(LucideIcons.calendarDays), label: tr('Schedule')),
             NavigationDestination(
               icon: Badge(isLabelVisible: low > 0, label: Text('$low'), backgroundColor: t.warning, child: const Icon(LucideIcons.package)),
-              label: 'Van stock',
+              label: tr('Van stock'),
             ),
-            const NavigationDestination(icon: Icon(LucideIcons.user), label: 'Profile'),
+            NavigationDestination(icon: Icon(LucideIcons.user), label: tr('Profile')),
           ],
         ),
       ),

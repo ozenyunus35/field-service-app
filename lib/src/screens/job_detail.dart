@@ -11,6 +11,7 @@ import '../ui.dart';
 import 'complete.dart';
 import 'quote.dart';
 import 'signature.dart';
+import '../i18n.dart';
 
 typedef JobAction = ({String label, IconData icon, VoidCallback? onPressed});
 
@@ -21,7 +22,7 @@ JobAction primaryAction(BuildContext context, Job j) {
   return switch (j.status) {
     JobStatus.scheduled when blocked != null => (label: blocked, icon: LucideIcons.calendarClock, onPressed: null),
     JobStatus.scheduled => (
-      label: 'Start travel',
+      label: tr('Start travel'),
       icon: LucideIcons.car,
       onPressed: () {
         final err = s.startTravel(j.id);
@@ -29,7 +30,7 @@ JobAction primaryAction(BuildContext context, Job j) {
       },
     ),
     JobStatus.travelling => (
-      label: 'Arrived on site',
+      label: tr('Arrived on site'),
       icon: LucideIcons.mapPinned,
       onPressed: () {
         final err = s.arrive(j.id);
@@ -37,12 +38,12 @@ JobAction primaryAction(BuildContext context, Job j) {
       },
     ),
     JobStatus.onSite => (
-      label: 'Complete job',
+      label: tr('Complete job'),
       icon: LucideIcons.circleCheck,
       onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => CompleteScreen(jobId: j.id))),
     ),
-    JobStatus.completed => (label: 'Completed', icon: LucideIcons.check, onPressed: null),
-    JobStatus.cancelled => (label: 'Cancelled by the office', icon: LucideIcons.ban, onPressed: null),
+    JobStatus.completed => (label: tr('Completed'), icon: LucideIcons.check, onPressed: null),
+    JobStatus.cancelled => (label: tr('Cancelled by the office'), icon: LucideIcons.ban, onPressed: null),
   };
 }
 
@@ -88,7 +89,7 @@ class JobDetailScreen extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (j.urgent && !j.closed) Tag('Urgent', color: t.danger),
+                    if (j.urgent && !j.closed) Tag(tr('Urgent'), color: t.danger),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -99,7 +100,7 @@ class JobDetailScreen extends StatelessWidget {
                       children: [
                         Icon(LucideIcons.ban, size: 16, color: t.danger),
                         const SizedBox(width: 10),
-                        Expanded(child: Text('Cancelled by the office: ${j.cancelReason ?? 'no reason given'}.', style: tt.bodyMedium)),
+                        Expanded(child: Text(tr('Cancelled by the office: ${j.cancelReason ?? 'no reason given'}.'), style: tt.bodyMedium)),
                       ],
                     ),
                   )
@@ -108,7 +109,7 @@ class JobDetailScreen extends StatelessWidget {
                 const SizedBox(height: 14),
                 Text(j.description, style: tt.bodyMedium),
 
-                const SectionHeader('Customer'),
+                SectionHeader(tr('Customer')),
                 Panel(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -122,12 +123,12 @@ class JobDetailScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(c.name, style: tt.titleMedium),
-                                Text('Customer since ${c.since} · ${plural(history.length, 'past visit')}', style: tt.bodySmall),
+                                Text(tr('Customer since ${c.since} · ${plural(history.length, 'past visit')}'), style: tt.bodySmall),
                               ],
                             ),
                           ),
                           IconButton.outlined(
-                            tooltip: 'Call ${c.name}',
+                            tooltip: tr('Call ${c.name}'),
                             onPressed: () => toast(context, 'On a phone this calls ${c.phone}.'),
                             icon: const Icon(LucideIcons.phone, size: 16),
                             style: IconButton.styleFrom(
@@ -145,7 +146,7 @@ class JobDetailScreen extends StatelessWidget {
                   ),
                 ),
 
-                const SectionHeader('Equipment'),
+                SectionHeader(tr('Equipment')),
                 Panel(
                   padding: EdgeInsets.zero,
                   child: Column(
@@ -159,21 +160,21 @@ class JobDetailScreen extends StatelessWidget {
                 ),
 
                 if (j.needsSafetyCheck && !j.cancelled) ...[
-                  const SectionHeader('Site safety'),
+                  SectionHeader(tr('Site safety')),
                   j.safetyCheckedAt != null
                       ? Panel(
                           child: Row(
                             children: [
                               Icon(LucideIcons.shieldCheck, size: 16, color: t.success),
                               const SizedBox(width: 10),
-                              Expanded(child: Text('Safety check done at ${clockOf(j.safetyCheckedAt!)}', style: tt.bodyMedium)),
+                              Expanded(child: Text(tr('Safety check done at ${clockOf(j.safetyCheckedAt!)}'), style: tt.bodyMedium)),
                             ],
                           ),
                         )
                       : _SafetyCheck(job: j),
                 ],
 
-                SectionHeader('Checklist', trailing: Text('${j.checked} of ${j.checklist.length}', style: tt.bodySmall)),
+                SectionHeader(tr('Checklist'), trailing: Text(tr('${j.checked} of ${j.checklist.length}'), style: tt.bodySmall)),
                 Panel(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Column(
@@ -189,7 +190,7 @@ class JobDetailScreen extends StatelessWidget {
                           title: Text(item.label, style: TextStyle(fontSize: 14, color: item.done ? t.muted : t.text)),
                           subtitle: item.required
                               ? Text(
-                                  'Required',
+                                  tr('Required'),
                                   style: TextStyle(fontSize: 11.5, color: t.faint, fontWeight: FontWeight.w500),
                                 )
                               : null,
@@ -199,12 +200,12 @@ class JobDetailScreen extends StatelessWidget {
                 ),
 
                 SectionHeader(
-                  'Parts used',
+                  tr('Parts used'),
                   trailing: editable
                       ? TextButton.icon(
                           onPressed: () => showPartPicker(context, j.id),
                           icon: const Icon(LucideIcons.plus, size: 15),
-                          label: const Text('Add part'),
+                          label: Text(tr('Add part')),
                           style: TextButton.styleFrom(minimumSize: const Size(0, 30), padding: const EdgeInsets.symmetric(horizontal: 8)),
                         )
                       : null,
@@ -218,7 +219,7 @@ class JobDetailScreen extends StatelessWidget {
                             children: [
                               Icon(LucideIcons.packageOpen, size: 16, color: t.faint),
                               const SizedBox(width: 10),
-                              Expanded(child: Text('No parts yet. Parts come out of ${s.tech.van} stock.', style: tt.bodySmall)),
+                              Expanded(child: Text(tr('No parts yet. Parts come out of ${s.tech.van} stock.'), style: tt.bodySmall)),
                             ],
                           ),
                         )
@@ -232,7 +233,7 @@ class JobDetailScreen extends StatelessWidget {
                         ),
                 ),
 
-                SectionHeader('Photos', trailing: Text(plural(j.photos.length, 'photo'), style: tt.bodySmall)),
+                SectionHeader(tr('Photos'), trailing: Text(plural(j.photos.length, 'photo'), style: tt.bodySmall)),
                 GridView.count(
                   crossAxisCount: 3,
                   shrinkWrap: true,
@@ -258,7 +259,7 @@ class JobDetailScreen extends StatelessWidget {
                                     customBorder: const CircleBorder(),
                                     onTap: () => s.removePhoto(j.id, p.id),
                                     child: Semantics(
-                                      label: 'Remove ${p.label} photo',
+                                      label: tr('Remove ${p.label} photo'),
                                       button: true,
                                       child: const Padding(
                                         padding: EdgeInsets.all(4),
@@ -274,7 +275,7 @@ class JobDetailScreen extends StatelessWidget {
                     if (editable)
                       Semantics(
                         button: true,
-                        label: 'Add photo',
+                        label: tr('Add photo'),
                         excludeSemantics: true,
                         child: InkWell(
                           onTap: () {
@@ -294,7 +295,7 @@ class JobDetailScreen extends StatelessWidget {
                                 Icon(LucideIcons.camera, size: 18, color: t.muted),
                                 const SizedBox(height: 6),
                                 Text(
-                                  'Add photo',
+                                  tr('Add photo'),
                                   style: TextStyle(fontSize: 12, color: t.muted, fontWeight: FontWeight.w500),
                                 ),
                               ],
@@ -305,17 +306,17 @@ class JobDetailScreen extends StatelessWidget {
                   ],
                 ),
 
-                const SectionHeader('Notes'),
+                SectionHeader(tr('Notes')),
                 _Notes(job: j, enabled: editable),
 
                 if (!j.cancelled && (j.status == JobStatus.onSite || j.done || s.quotesFor(j.id).isNotEmpty)) ...[
                   SectionHeader(
-                    'Quotes',
+                    tr('Quotes'),
                     trailing: j.status == JobStatus.onSite || j.done
                         ? TextButton.icon(
                             onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => QuoteScreen(jobId: j.id))),
                             icon: const Icon(LucideIcons.filePlus2, size: 15),
-                            label: const Text('New quote'),
+                            label: Text(tr('New quote')),
                             style: TextButton.styleFrom(minimumSize: const Size(0, 30), padding: const EdgeInsets.symmetric(horizontal: 8)),
                           )
                         : null,
@@ -325,7 +326,7 @@ class JobDetailScreen extends StatelessWidget {
                     child: s.quotesFor(j.id).isEmpty
                         ? Padding(
                             padding: const EdgeInsets.all(16),
-                            child: Text('Found more work? Quote it here and the customer can accept on the spot.', style: tt.bodySmall),
+                            child: Text(tr('Found more work? Quote it here and the customer can accept on the spot.'), style: tt.bodySmall),
                           )
                         : Column(
                             children: [
@@ -335,10 +336,10 @@ class JobDetailScreen extends StatelessWidget {
                   ),
                 ],
 
-                if (j.done) ...[const SectionHeader('Sign-off'), _SignOff(job: j)],
+                if (j.done) ...[SectionHeader(tr('Sign-off')), _SignOff(job: j)],
 
                 if (history.isNotEmpty) ...[
-                  const SectionHeader('Previous visits'),
+                  SectionHeader(tr('Previous visits')),
                   Panel(
                     padding: EdgeInsets.zero,
                     child: Column(
@@ -388,10 +389,10 @@ class _Steps extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    const labels = ['Scheduled', 'On the way', 'On site', 'Completed'];
+    final labels = [tr('Scheduled'), tr('On the way'), tr('On site'), tr('Completed')];
     final at = status.index;
     return Semantics(
-      label: 'Progress: ${labels[at]}, step ${at + 1} of 4',
+      label: tr('Progress: ${labels[at]}, step ${at + 1} of 4'),
       excludeSemantics: true,
       child: Row(
         children: [
@@ -467,12 +468,12 @@ class _PartLine extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(p.name, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w500)),
-                Text('${p.sku} · ${money(used.price)} each', style: TextStyle(fontSize: 12, color: t.muted)),
+                Text(tr('${p.sku} · ${money(used.price)} each'), style: TextStyle(fontSize: 12, color: t.muted)),
               ],
             ),
           ),
           if (editable) ...[
-            _Step(icon: LucideIcons.minus, label: 'Return one ${p.name}', onTap: () => s.removePart(job.id, p.id)),
+            _Step(icon: LucideIcons.minus, label: tr('Return one ${p.name}'), onTap: () => s.removePart(job.id, p.id)),
             SizedBox(
               width: 28,
               child: Text(
@@ -483,7 +484,7 @@ class _PartLine extends StatelessWidget {
             ),
             _Step(
               icon: LucideIcons.plus,
-              label: 'Add one ${p.name}',
+              label: tr('Add one ${p.name}'),
               onTap: () {
                 final err = s.addPart(job.id, p.id);
                 if (err != null) toast(context, err);
@@ -589,7 +590,7 @@ class _NotesState extends State<_Notes> {
     },
     onTapOutside: (_) => focus.unfocus(),
     style: const TextStyle(fontSize: 14),
-    decoration: const InputDecoration(hintText: 'What you found and what you did', labelText: 'Notes for the office', counterText: ''),
+    decoration: InputDecoration(hintText: tr('What you found and what you did'), labelText: tr('Notes for the office'), counterText: ''),
   );
 }
 
@@ -606,12 +607,12 @@ class _SignOff extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          KeyValue('Call-out', money(inv.callOut)),
-          KeyValue('Labour, ${duration(inv.labourMinutes)}', money(inv.labour)),
-          KeyValue('Parts', money(inv.parts)),
-          KeyValue('Tax on parts', money(inv.tax)),
+          KeyValue(tr('Call-out'), money(inv.callOut)),
+          KeyValue(tr('Labour, ${duration(inv.labourMinutes)}'), money(inv.labour)),
+          KeyValue(tr('Parts'), money(inv.parts)),
+          KeyValue(tr('Tax on parts'), money(inv.tax)),
           Divider(color: t.border, height: 16),
-          KeyValue('Total', money(inv.total), strong: true),
+          KeyValue(tr('Total'), money(inv.total), strong: true),
           const SizedBox(height: 12),
           if (job.signature != null)
             Container(
@@ -619,7 +620,7 @@ class _SignOff extends StatelessWidget {
               width: double.infinity,
               decoration: BoxDecoration(color: t.surface2, borderRadius: BorderRadius.circular(8)),
               child: Semantics(
-                label: 'Signature of ${job.signedBy}',
+                label: tr('Signature of ${job.signedBy}'),
                 image: true,
                 child: CustomPaint(painter: SignaturePainter(job.signature!, color: t.text)),
               ),
@@ -667,8 +668,8 @@ class _PartPickerState extends State<_PartPicker> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
             child: Row(
               children: [
-                Expanded(child: Text('Add from ${s.tech.van}', style: Theme.of(context).textTheme.titleMedium)),
-                IconButton(tooltip: 'Close', onPressed: () => Navigator.pop(context), icon: const Icon(LucideIcons.x, size: 18)),
+                Expanded(child: Text(tr('Add from ${s.tech.van}'), style: Theme.of(context).textTheme.titleMedium)),
+                IconButton(tooltip: tr('Close'), onPressed: () => Navigator.pop(context), icon: const Icon(LucideIcons.x, size: 18)),
               ],
             ),
           ),
@@ -677,13 +678,13 @@ class _PartPickerState extends State<_PartPicker> {
             child: TextField(
               autofocus: false,
               onChanged: (v) => setState(() => q = v.trim().toLowerCase()),
-              decoration: const InputDecoration(prefixIcon: Icon(LucideIcons.search, size: 16), hintText: 'Search parts or SKU'),
+              decoration: InputDecoration(prefixIcon: Icon(LucideIcons.search, size: 16), hintText: tr('Search parts or SKU')),
             ),
           ),
           const SizedBox(height: 8),
           Expanded(
             child: list.isEmpty
-                ? Center(child: Text('No parts match "$q".', style: Theme.of(context).textTheme.bodySmall))
+                ? Center(child: Text(tr('No parts match "$q".'), style: Theme.of(context).textTheme.bodySmall))
                 : ListView.separated(
                     itemCount: list.length,
                     separatorBuilder: (_, _) => Divider(height: 1, indent: 16, endIndent: 16, color: t.border),
@@ -696,7 +697,7 @@ class _PartPickerState extends State<_PartPicker> {
                         title: Text(p.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                         subtitle: Text('${p.sku} · ${money(p.price)}', style: TextStyle(fontSize: 12, color: t.muted)),
                         trailing: Text(
-                          out ? 'Out of stock' : '${p.qty} in van',
+                          out ? tr('Out of stock') : tr('${p.qty} in van'),
                           style: TextStyle(fontSize: 12, color: out ? t.danger : (p.low ? t.warning : t.muted), fontWeight: FontWeight.w500),
                         ),
                         onTap: () {
@@ -735,7 +736,11 @@ class _EquipmentLine extends StatelessWidget {
               children: [
                 Text('${e.kind} · ${e.model}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                 Text(
-                  'Serial ${e.serial} · installed ${e.installed} (${plural(age, 'year')}) · ${e.lastService == null ? 'no service on record' : 'last service ${dayShort(e.lastService!)}'}',
+                  [
+                    tr('Serial {a}', {'a': e.serial}),
+                    tr('installed {a} ({b})', {'a': e.installed, 'b': plural(age, 'year')}),
+                    e.lastService == null ? tr('no service on record') : tr('last service {a}', {'a': dayShort(e.lastService!)}),
+                  ].join(' · '),
                   style: tt.bodySmall,
                 ),
               ],
@@ -772,7 +777,7 @@ class _SafetyCheckState extends State<_SafetyCheck> {
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 8, 0, 4),
             child: Text(
-              onSite ? 'Before any work on the appliance:' : 'On arrival, before any work on the appliance:',
+              onSite ? tr('Before any work on the appliance:') : tr('On arrival, before any work on the appliance:'),
               style: TextStyle(fontSize: 13, color: t.muted),
             ),
           ),
@@ -784,7 +789,7 @@ class _SafetyCheckState extends State<_SafetyCheck> {
               dense: true,
               visualDensity: VisualDensity.compact,
               contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-              title: Text(label, style: const TextStyle(fontSize: 14)),
+              title: Text(tr(label), style: const TextStyle(fontSize: 14)),
             ),
           if (onSite)
             Align(
@@ -797,7 +802,7 @@ class _SafetyCheckState extends State<_SafetyCheck> {
                       }
                     : null,
                 icon: const Icon(LucideIcons.shieldCheck, size: 16),
-                label: const Text('Confirm safety check'),
+                label: Text(tr('Confirm safety check')),
               ),
             ),
         ],
@@ -819,9 +824,9 @@ class _QuoteLine extends StatelessWidget {
     final total = s.quoteTotal(quote).total;
     final booked = quote.followUpJobId == null ? null : s.job(quote.followUpJobId!);
     final (label, color) = switch (quote.status) {
-      QuoteStatus.open => ('Waiting for the customer', t.warning),
-      QuoteStatus.accepted => ('Accepted, ${booked!.ref} on ${dayShort(booked.date)}', t.success),
-      QuoteStatus.declined => ('Declined', t.faint),
+      QuoteStatus.open => (tr('Waiting for the customer'), t.warning),
+      QuoteStatus.accepted => (tr('Accepted, ${booked!.ref} on ${dayShort(booked.date)}'), t.success),
+      QuoteStatus.declined => (tr('Declined'), t.faint),
     };
     return ListTile(
       title: Text('${quote.title} · ${money(total, cents: false)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),

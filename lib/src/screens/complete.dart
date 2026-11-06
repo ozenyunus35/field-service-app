@@ -8,6 +8,7 @@ import '../store.dart';
 import '../theme.dart';
 import '../ui.dart';
 import 'signature.dart';
+import '../i18n.dart';
 
 /// Sign-off: check what's missing, set the labour time, review the invoice, get a signature.
 class CompleteScreen extends StatefulWidget {
@@ -59,7 +60,7 @@ class _CompleteScreenState extends State<CompleteScreen> {
     final blockers = s.blockers(j, signature: signature);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Complete job')),
+      appBar: AppBar(title: Text(tr('Complete job'))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
@@ -84,7 +85,7 @@ class _CompleteScreenState extends State<CompleteScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Finish the required checks first',
+                          tr('Finish the required checks first'),
                           style: TextStyle(fontWeight: FontWeight.w600, color: t.text, fontSize: 13.5),
                         ),
                         const SizedBox(height: 4),
@@ -97,7 +98,7 @@ class _CompleteScreenState extends State<CompleteScreen> {
             ),
           ],
 
-          const SectionHeader('Labour'),
+          SectionHeader(tr('Labour')),
           Panel(
             child: Row(
               children: [
@@ -108,15 +109,15 @@ class _CompleteScreenState extends State<CompleteScreen> {
                       Text(duration(labour), style: tt.titleMedium),
                       Text(
                         j.arrivedAt == null
-                            ? 'Booked ${duration(j.duration)} · ${money(s.tech.hourlyRate, cents: false)}/h'
-                            : 'On site ${duration(s.onSiteMinutes(j))} · booked ${duration(j.duration)} · ${money(s.tech.hourlyRate, cents: false)}/h',
+                            ? tr('Booked ${duration(j.duration)} · ${money(s.tech.hourlyRate, cents: false)}/h')
+                            : tr('On site ${duration(s.onSiteMinutes(j))} · booked ${duration(j.duration)} · ${money(s.tech.hourlyRate, cents: false)}/h'),
                         style: tt.bodySmall,
                       ),
                     ],
                   ),
                 ),
                 IconButton.outlined(
-                  tooltip: 'Less labour time',
+                  tooltip: tr('Less labour time'),
                   onPressed: labour > 30 ? () => setState(() => labour -= 15) : null,
                   icon: const Icon(LucideIcons.minus, size: 15),
                   style: IconButton.styleFrom(
@@ -126,7 +127,7 @@ class _CompleteScreenState extends State<CompleteScreen> {
                 ),
                 const SizedBox(width: 6),
                 IconButton.outlined(
-                  tooltip: 'More labour time',
+                  tooltip: tr('More labour time'),
                   onPressed: labour < 600 ? () => setState(() => labour += 15) : null,
                   icon: const Icon(LucideIcons.plus, size: 15),
                   style: IconButton.styleFrom(
@@ -138,25 +139,25 @@ class _CompleteScreenState extends State<CompleteScreen> {
             ),
           ),
 
-          const SectionHeader('Invoice'),
+          SectionHeader(tr('Invoice')),
           Panel(
             child: Column(
               children: [
-                KeyValue('Call-out', money(inv.callOut)),
-                KeyValue('Labour, ${duration(inv.labourMinutes)}', money(inv.labour)),
+                KeyValue(tr('Call-out'), money(inv.callOut)),
+                KeyValue(tr('Labour, ${duration(inv.labourMinutes)}'), money(inv.labour)),
                 for (final u in j.parts) KeyValue('${s.part(u.partId).name} × ${u.qty}', money(u.price * u.qty)),
-                KeyValue('Tax on parts (${(taxRate * 100).toStringAsFixed(2)}%)', money(inv.tax)),
+                KeyValue(tr('Tax on parts (${(taxRate * 100).toStringAsFixed(2)}%)'), money(inv.tax)),
                 Divider(color: t.border, height: 18),
                 TweenAnimationBuilder<double>(
                   tween: Tween(end: inv.total),
                   duration: const Duration(milliseconds: 260),
-                  builder: (_, v, _) => KeyValue('Total', money(v), strong: true),
+                  builder: (_, v, _) => KeyValue(tr('Total'), money(v), strong: true),
                 ),
               ],
             ),
           ),
 
-          const SectionHeader('Payment'),
+          SectionHeader(tr('Payment')),
           Panel(
             padding: const EdgeInsets.all(10),
             child: Column(
@@ -164,10 +165,10 @@ class _CompleteScreenState extends State<CompleteScreen> {
               children: [
                 SegmentedButton<PayMethod>(
                   showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: PayMethod.card, label: Text('Card'), icon: Icon(LucideIcons.creditCard, size: 15)),
-                    ButtonSegment(value: PayMethod.cash, label: Text('Cash'), icon: Icon(LucideIcons.banknote, size: 15)),
-                    ButtonSegment(value: PayMethod.invoice, label: Text('Invoice'), icon: Icon(LucideIcons.fileText, size: 15)),
+                  segments: [
+                    ButtonSegment(value: PayMethod.card, label: Text(tr('Card')), icon: Icon(LucideIcons.creditCard, size: 15)),
+                    ButtonSegment(value: PayMethod.cash, label: Text(tr('Cash')), icon: Icon(LucideIcons.banknote, size: 15)),
+                    ButtonSegment(value: PayMethod.invoice, label: Text(tr('Invoice')), icon: Icon(LucideIcons.fileText, size: 15)),
                   ],
                   selected: {pay},
                   onSelectionChanged: (v) => setState(() {
@@ -176,17 +177,17 @@ class _CompleteScreenState extends State<CompleteScreen> {
                   }),
                 ),
                 const SizedBox(height: 8),
-                if (pay == PayMethod.card) Text('Tap the card on the reader. In this demo the payment is simulated.', style: tt.bodySmall),
-                if (pay == PayMethod.invoice) Text('The invoice is emailed with payment due in 30 days.', style: tt.bodySmall),
+                if (pay == PayMethod.card) Text(tr('Tap the card on the reader. In this demo the payment is simulated.'), style: tt.bodySmall),
+                if (pay == PayMethod.invoice) Text(tr('The invoice is emailed with payment due in 30 days.'), style: tt.bodySmall),
                 if (pay == PayMethod.cash) ...[
-                  Text('Cash received', style: tt.bodySmall),
+                  Text(tr('Cash received'), style: tt.bodySmall),
                   const SizedBox(height: 6),
                   Wrap(
                     spacing: 6,
                     children: [
                       for (final amount in {inv.total, (inv.total / 10).ceil() * 10.0, (inv.total / 50).ceil() * 50.0, (inv.total / 100).ceil() * 100.0})
                         ChoiceChip(
-                          label: Text(amount == inv.total ? 'Exact ${money(amount)}' : money(amount, cents: false)),
+                          label: Text(amount == inv.total ? tr('Exact ${money(amount)}') : money(amount, cents: false)),
                           selected: tendered == amount,
                           onSelected: (_) => setState(() => tendered = amount),
                         ),
@@ -194,7 +195,7 @@ class _CompleteScreenState extends State<CompleteScreen> {
                   ),
                   if (tendered != null && tendered! > inv.total) ...[
                     const SizedBox(height: 6),
-                    Text('Change to give: ${money(tendered! - inv.total)}', style: tt.titleSmall),
+                    Text(tr('Change to give: ${money(tendered! - inv.total)}'), style: tt.titleSmall),
                   ],
                 ],
               ],
@@ -202,13 +203,13 @@ class _CompleteScreenState extends State<CompleteScreen> {
           ),
 
           SectionHeader(
-            'Customer sign-off',
+            tr('Customer sign-off'),
             trailing: signature.isEmpty
                 ? null
                 : TextButton.icon(
                     onPressed: () => pad.currentState?.clear(),
                     icon: const Icon(LucideIcons.eraser, size: 14),
-                    label: const Text('Clear'),
+                    label: Text(tr('Clear')),
                     style: TextButton.styleFrom(minimumSize: const Size(0, 30), padding: const EdgeInsets.symmetric(horizontal: 8)),
                   ),
           ),
@@ -217,11 +218,11 @@ class _CompleteScreenState extends State<CompleteScreen> {
           TextField(
             controller: name,
             maxLength: AppStore.maxSignedBy,
-            decoration: const InputDecoration(labelText: 'Signed by', counterText: ''),
+            decoration: InputDecoration(labelText: tr('Signed by'), counterText: ''),
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 8),
-          Text('By signing, the customer confirms the work and the total above.', style: tt.bodySmall),
+          Text(tr('By signing, the customer confirms the work and the total above.'), style: tt.bodySmall),
         ],
       ),
       bottomNavigationBar: SafeArea(
@@ -238,7 +239,7 @@ class _CompleteScreenState extends State<CompleteScreen> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Text(
-                    blockers.join(' · '),
+                    blockers.map((b) => tr(b)).join(' · '),
                     style: TextStyle(fontSize: 12, color: t.muted),
                     textAlign: TextAlign.center,
                   ),
@@ -249,11 +250,14 @@ class _CompleteScreenState extends State<CompleteScreen> {
                   onPressed: blockers.isEmpty && name.text.trim().isNotEmpty ? _submit : null,
                   icon: const Icon(LucideIcons.send, size: 16),
                   label: Text(
-                    'Complete · ${switch (pay) {
-                      PayMethod.card => 'card',
-                      PayMethod.cash => 'cash',
-                      PayMethod.invoice => 'invoice',
-                    }} ${money(inv.total)}',
+                    tr('Complete · {method} {total}', {
+                      'method': switch (pay) {
+                        PayMethod.card => tr('card'),
+                        PayMethod.cash => tr('cash'),
+                        PayMethod.invoice => tr('invoice'),
+                      },
+                      'total': money(inv.total),
+                    }),
                   ),
                 ),
               ),
@@ -297,10 +301,12 @@ class DoneScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 18),
-              Semantics(header: true, child: Text('Job completed', style: tt.headlineSmall)),
+              Semantics(header: true, child: Text(tr('Job completed'), style: tt.headlineSmall)),
               const SizedBox(height: 8),
               Text(
-                '${j.ref} for ${c.name}: invoice of ${money(s.invoice(j).total)} ${s.offline ? 'saved on this phone. It is sent when you are back online.' : 'sent to the customer.'}',
+                tr(
+                  '${j.ref} for ${c.name}: invoice of ${money(s.invoice(j).total)} ${s.offline ? 'saved on this phone. It is sent when you are back online.' : 'sent to the customer.'}',
+                ),
                 textAlign: TextAlign.center,
                 style: tt.bodyMedium?.copyWith(color: t.muted),
               ),
@@ -309,23 +315,24 @@ class DoneScreen extends StatelessWidget {
                 Panel(
                   child: Column(
                     children: [
-                      KeyValue('Receipt', j.payment!.receipt),
+                      KeyValue(tr('Receipt'), j.payment!.receipt),
                       KeyValue(
                         switch (j.payment!.method) {
-                          PayMethod.card => 'Paid by card',
-                          PayMethod.cash => 'Paid in cash',
-                          PayMethod.invoice => 'To invoice, due in 30 days',
+                          PayMethod.card => tr('Paid by card'),
+                          PayMethod.cash => tr('Paid in cash'),
+                          PayMethod.invoice => tr('To invoice, due in 30 days'),
                         },
                         money(j.payment!.amount),
                         strong: true,
                       ),
-                      if (j.payment!.method == PayMethod.cash) KeyValue('Received · change', '${money(j.payment!.tendered!)} · ${money(j.payment!.change)}'),
+                      if (j.payment!.method == PayMethod.cash)
+                        KeyValue(tr('Received · change'), '${money(j.payment!.tendered!)} · ${money(j.payment!.change)}'),
                     ],
                   ),
                 ),
               ],
               const SizedBox(height: 6),
-              Text('Demo: nothing is actually sent.', style: tt.bodySmall),
+              Text(tr('Demo: nothing is actually sent.'), style: tt.bodySmall),
               const Spacer(),
               if (next != null) ...[
                 Panel(
@@ -337,7 +344,7 @@ class DoneScreen extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Next: ${next.title}', style: tt.titleSmall),
+                            Text(tr('Next: ${next.title}'), style: tt.titleSmall),
                             Text('${window(next.start, next.windowEnd)} · ${s.customer(next.customerId).street}', style: tt.bodySmall),
                           ],
                         ),
@@ -349,7 +356,7 @@ class DoneScreen extends StatelessWidget {
               ],
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst), child: const Text('Back to today')),
+                child: FilledButton(onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst), child: Text(tr('Back to today'))),
               ),
             ],
           ),

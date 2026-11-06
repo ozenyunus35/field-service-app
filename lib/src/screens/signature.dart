@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models.dart';
 import '../theme.dart';
+import '../i18n.dart';
 
 /// Draws strokes stored as 0..1 points, scaled to the canvas.
 class SignaturePainter extends CustomPainter {
@@ -72,7 +73,7 @@ class SignaturePadState extends State<SignaturePad> {
         final size = Size(box.maxWidth, 150);
         return Semantics(
           container: true,
-          label: _strokes.isEmpty ? 'Signature pad, empty. Sign with a finger or the mouse.' : 'Signature pad, signed',
+          label: _strokes.isEmpty ? tr('Signature pad, empty. Sign with a finger or the mouse.') : tr('Signature pad, signed'),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onPanStart: (d) => setState(() {
@@ -97,7 +98,7 @@ class SignaturePadState extends State<SignaturePad> {
                   Positioned(
                     left: 16,
                     bottom: 14,
-                    child: Text('Customer signature', style: TextStyle(fontSize: 11.5, color: t.faint)),
+                    child: Text(tr('Customer signature'), style: TextStyle(fontSize: 11.5, color: t.faint)),
                   ),
                   Positioned.fill(
                     child: CustomPaint(
