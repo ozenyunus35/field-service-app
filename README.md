@@ -73,6 +73,8 @@ in a phone frame)
 | ![Today](docs/light-1-today.png) | ![Job](docs/dark-2-job.png) | ![Sign-off](docs/light-3-complete.png) |
 | **Schedule** | **Van stock** | **Profile** |
 | ![Schedule](docs/light-4-schedule.png) | ![Van stock](docs/dark-5-stock.png) | ![Profile](docs/light-6-profile.png) |
+| **In Turkish: Today** | **Schedule** | **Profile** |
+| ![Today in Turkish](docs/tr-today.png) | ![Schedule in Turkish](docs/tr-schedule.png) | ![Profile in Turkish](docs/tr-profile.png) |
 
 ## How it is built
 
