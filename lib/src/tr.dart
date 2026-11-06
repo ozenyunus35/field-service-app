@@ -347,4 +347,5 @@ const Map<String, String> trText = {
   'Already completed': 'Zaten tamamlandı',
   'Scheduled for {a}': '{a} için planlandı',
   'This job was on {a}': 'Bu iş {a} tarihindeydi',
+  '{n} done': '{n} tamamlandı',
 };

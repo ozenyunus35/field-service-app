@@ -116,7 +116,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             child: Text(
               jobs.isEmpty
                   ? relativeDay(day, s.today)
-                  : '${relativeDay(day, s.today)} · ${plural(jobs.length, 'job')} · ${duration(booked)}${done > 0 ? ' · $done done' : ''}',
+                  : '${relativeDay(day, s.today)} · ${plural(jobs.length, 'job')} · ${duration(booked)}${done > 0 ? ' · ${tr('{n} done', {'n': done})}' : ''}',
               style: tt.titleSmall?.copyWith(color: t.muted),
             ),
           ),
